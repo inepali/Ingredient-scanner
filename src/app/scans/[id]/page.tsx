@@ -6,7 +6,8 @@ import type { OffSummary } from "@/lib/openfoodfacts";
 import { parseScript, type VideoScript } from "@/lib/script";
 import ScriptSection from "@/components/ScriptSection";
 import { isMock } from "@/lib/mock";
-import { mediaUrls, type MediaBucket } from "@/lib/storage";
+import { mediaUrl, mediaUrls, type MediaBucket } from "@/lib/storage";
+import { RENDER_TIMEOUT_MS } from "@/lib/render";
 import type { CopyRow, JobRow, MediaRow } from "@/lib/db-types";
 import VideoStudio, { type StudioCopy, type StudioMedia } from "@/components/VideoStudio";
 
@@ -86,7 +87,7 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
 
   const { data: video } = await db
     .from("videos")
-    .select("script, audio_path, duration_s")
+    .select("script, audio_path, video_path, duration_s")
     .eq("scan_id", id)
     .not("script", "is", null)
     .order("version", { ascending: false })
@@ -146,6 +147,25 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
     id: j.id,
     media_id: j.input?.media_id ?? null,
   }));
+  const { data: renderJobs } = await db
+    .from("jobs")
+    .select("id, status, error, created_at")
+    .eq("scan_id", id)
+    .eq("step", "render")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const lastRender = renderJobs?.[0];
+  const renderStale =
+    lastRender?.status === "running" &&
+    Date.now() - new Date(lastRender.created_at as string).getTime() >= RENDER_TIMEOUT_MS;
+  const activeRender = lastRender?.status === "running" && !renderStale ? lastRender : undefined;
+  const renderError =
+    renderStale ? "The last render timed out." : lastRender?.status === "failed" ? ((lastRender.error as string | null) ?? "The last render failed.") : null;
+  const finalPath = (video?.video_path as string | null) ?? null;
+  const videoUrl = finalPath ? await mediaUrl("videos", finalPath) : null;
+  const downloadUrl = finalPath
+    ? await mediaUrl("videos", finalPath, 3600, `${(scan.product_name ?? "ingredient-check").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.mp4`)
+    : null;
   const defaultResolution = process.env.WAN_RESOLUTION === "720p" ? "720p" : "480p";
 
   const overall: number = scan.overall_score;
@@ -274,6 +294,10 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
           hasScript
           audioUrl={video?.audio_path ? (urls.get(video.audio_path as string) ?? null) : null}
           audioSeconds={video?.duration_s ?? null}
+          videoUrl={videoUrl}
+          downloadUrl={downloadUrl}
+          renderJobId={(activeRender?.id as string | undefined) ?? null}
+          renderError={renderError}
           copy={studioCopy}
           pendingJobs={pendingJobs}
           maxClips={Number(process.env.MAX_CLIPS ?? 4)}

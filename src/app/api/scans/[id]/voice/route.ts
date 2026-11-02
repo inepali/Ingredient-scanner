@@ -64,6 +64,7 @@ export const POST = handler(async (req, ctx) => {
       .update({
         voice_id: voiceId || null,
         audio_path: path,
+        video_path: null, // a new voiceover makes any earlier final video stale
         duration_s: speech.durationSeconds,
         alignment: speech.alignment,
         words,

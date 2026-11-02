@@ -25,6 +25,10 @@ export type StudioProps = {
   hasScript: boolean;
   audioUrl: string | null;
   audioSeconds: number | null;
+  videoUrl: string | null;
+  downloadUrl: string | null;
+  renderJobId: string | null;
+  renderError: string | null;
   copy: StudioCopy[];
   pendingJobs: { id: string; media_id: string | null }[];
   maxClips: number;
@@ -60,7 +64,7 @@ const btn =
 const card = "space-y-3 rounded-xl border bg-white p-4";
 
 export default function VideoStudio(props: StudioProps) {
-  const { scanId, media, hasScript, audioUrl, audioSeconds, copy, pendingJobs, maxClips, mock } = props;
+  const { scanId, media, hasScript, audioUrl, audioSeconds, copy, pendingJobs, maxClips, mock, videoUrl, downloadUrl, renderJobId, renderError } = props;
   const router = useRouter();
 
   const [busy, setBusy] = useState<string | null>(null);
@@ -69,7 +73,7 @@ export default function VideoStudio(props: StudioProps) {
   const [resolution, setResolution] = useState<"480p" | "720p">(props.defaultResolution);
 
   // While clips are rendering, poll their jobs; refresh the page data when any finishes.
-  const pendingKey = pendingJobs.map((j) => j.id).join(",");
+  const pendingKey = [...pendingJobs.map((j) => j.id), ...(renderJobId ? [renderJobId] : [])].join(",");
   useEffect(() => {
     if (!pendingKey) return;
     const ids = pendingKey.split(",");
@@ -121,46 +125,7 @@ export default function VideoStudio(props: StudioProps) {
       {notice && <p className="rounded-md bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
 
       <section className={card}>
-        <h3 className="font-medium">1. Post copy</h3>
-        <p className="text-sm text-neutral-500">Title, description and hashtags for TikTok and Instagram.</p>
-        <button
-          className={btn}
-          disabled={busy !== null}
-          onClick={() =>
-            run("copy", async () => {
-              await postJson(`/api/scans/${scanId}/copy`, {});
-              return "Post copy written.";
-            })
-          }
-        >
-          {busy === "copy" ? "Writing…" : copy.length > 0 ? "Rewrite post copy" : "Write post copy"}
-        </button>
-
-        {copy.map((c) => (
-          <div key={c.platform} className="space-y-1 rounded-md bg-neutral-50 p-3 text-sm">
-            <div className="flex items-center justify-between">
-              <strong className="capitalize">{c.platform}</strong>
-              <button
-                className="text-xs underline"
-                onClick={() => {
-                  const tags = c.hashtags.map((h) => `#${h}`).join(" ");
-                  void navigator.clipboard
-                    .writeText(`${c.title}\n\n${c.description}\n\n${tags}`)
-                    .then(() => setNotice(`${c.platform} copy copied.`));
-                }}
-              >
-                Copy
-              </button>
-            </div>
-            <p className="font-medium">{c.title}</p>
-            <p className="whitespace-pre-wrap text-neutral-600">{c.description}</p>
-            <p className="text-neutral-500">{c.hashtags.map((h) => `#${h}`).join(" ")}</p>
-          </div>
-        ))}
-      </section>
-
-      <section className={card}>
-        <h3 className="font-medium">2. AI voice</h3>
+        <h3 className="font-medium">1. AI voice</h3>
         <button
           className={btn}
           disabled={busy !== null || !hasScript}
@@ -188,7 +153,7 @@ export default function VideoStudio(props: StudioProps) {
       </section>
 
       <section className={card}>
-        <h3 className="font-medium">3. Animated clips (Wan 2.5)</h3>
+        <h3 className="font-medium">2. Animated clips (Wan 2.5)</h3>
         {photos.length === 0 ? (
           <p className="text-sm text-neutral-500">This scan has no product photos. Add them when you start a scan.</p>
         ) : (
@@ -253,6 +218,81 @@ export default function VideoStudio(props: StudioProps) {
           </>
         )}
       </section>
+      <section className={card}>
+        <h3 className="font-medium">3. Final video (1080×1920, 9:16)</h3>
+        <p className="text-sm text-neutral-500">
+          Puts your clips (or photos with a slow zoom), the voiceover and captions together, then writes the title,
+          description and tags. No AI video credits are used.
+          {clips.length === 0 && !renderJobId && " No animated clips yet, so your photos will be used."}
+        </p>
+        <button
+          className={btn}
+          disabled={busy !== null || !audioUrl || renderJobId !== null}
+          onClick={() =>
+            run("render", async () => {
+              await postJson(`/api/scans/${scanId}/render`, {});
+              return "Rendering started. It usually takes 1 to 3 minutes; this page updates itself.";
+            })
+          }
+        >
+          {renderJobId !== null ? "Rendering…" : busy === "render" ? "Starting…" : videoUrl ? "Generate again" : "Generate video"}
+        </button>
+        {!audioUrl && <p className="text-sm text-neutral-500">Generate the voice first.</p>}
+        {renderError && <p className="text-sm text-red-600">{renderError}</p>}
+        {videoUrl && (
+          <div className="space-y-2">
+            <video src={videoUrl} controls playsInline className="aspect-[9/16] w-full max-w-xs rounded-lg bg-black" />
+            {downloadUrl && (
+              <a href={downloadUrl} className="inline-block rounded-md border px-3 py-1.5 text-sm underline">
+                Download MP4
+              </a>
+            )}
+            <p className="text-xs text-neutral-500">
+              Clips are {props.defaultResolution}-quality source video scaled up to 1080×1920.
+            </p>
+          </div>
+        )}
+      </section>
+
+      <section className={card}>
+        <h3 className="font-medium">4. Title, description and tags</h3>
+        <p className="text-sm text-neutral-500">Written automatically when the video finishes. Rewrite them any time.</p>
+        <button
+          className={btn}
+          disabled={busy !== null}
+          onClick={() =>
+            run("copy", async () => {
+              await postJson(`/api/scans/${scanId}/copy`, {});
+              return "Post copy written.";
+            })
+          }
+        >
+          {busy === "copy" ? "Writing…" : copy.length > 0 ? "Rewrite" : "Write them now"}
+        </button>
+
+        {copy.map((c) => (
+          <div key={c.platform} className="space-y-1 rounded-md bg-neutral-50 p-3 text-sm">
+            <div className="flex items-center justify-between">
+              <strong className="capitalize">{c.platform}</strong>
+              <button
+                className="text-xs underline"
+                onClick={() => {
+                  const tags = c.hashtags.map((h) => `#${h}`).join(" ");
+                  void navigator.clipboard
+                    .writeText(`${c.title}\n\n${c.description}\n\n${tags}`)
+                    .then(() => setNotice(`${c.platform} copy copied.`));
+                }}
+              >
+                Copy
+              </button>
+            </div>
+            <p className="font-medium">{c.title}</p>
+            <p className="whitespace-pre-wrap text-neutral-600">{c.description}</p>
+            <p className="text-neutral-500">{c.hashtags.map((h) => `#${h}`).join(" ")}</p>
+          </div>
+        ))}
+      </section>
+
     </div>
   );
 }

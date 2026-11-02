@@ -1,0 +1,149 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { execFileSync, spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { buildAss, captionChunks } from "./captions.ts";
+import { assignSources, planSegments } from "./timeline.ts";
+import { buildFfmpegArgs, runFfmpeg } from "./render.ts";
+import { mockAlignment, silentWav } from "./mock.ts";
+import { wordsFromAlignment } from "./captions.ts";
+
+const words = (text: string, perWord = 0.4) =>
+  text.split(" ").map((t, i) => ({ text: t, start: i * perWord, end: i * perWord + perWord - 0.05 }));
+
+test("captionChunks: max 4 words, breaks at sentence ends, holds until the next line", () => {
+  const chunks = captionChunks(words("One two three four five. Six seven"));
+  assert.deepEqual(chunks.map((c) => c.text), ["One two three four", "five.", "Six seven"]);
+  assert.ok(chunks[0].end >= chunks[1].start - 1e-9);
+});
+
+test("buildAss has styles, timed captions and a score badge", () => {
+  const ass = buildAss({ words: words("Hello there friend"), duration: 3, fontName: "DejaVu Sans", scoreLabel: "Score 42/100" });
+  assert.match(ass, /PlayResX: 1080/);
+  assert.match(ass, /Dialogue: 0,0:00:00\.00,.*Caption,,0,0,0,,HELLO THERE FRIEND/);
+  assert.match(ass, /Dialogue: 1,0:00:00\.00,0:00:03\.00,Badge,,0,0,0,,SCORE 42\/100/);
+  assert.doesNotMatch(buildAss({ words: [], duration: 1, fontName: "x" }), /Badge,,/);
+});
+
+test("planSegments follows the spoken words", () => {
+  const scenes = [
+    { seconds: 5, voiceover: "one two three", photo: 1 },
+    { seconds: 5, voiceover: "four five", photo: 2 },
+    { seconds: 5, voiceover: "six seven eight nine" },
+  ];
+  const segs = planSegments(scenes, words("one two three four five six seven eight nine", 1), 9);
+  assert.deepEqual(segs.map((s) => [s.start, s.end]), [[0, 3], [3, 5], [5, 9]]);
+  assert.deepEqual(segs.map((s) => s.photoNumber), [1, 2, null]);
+});
+
+test("planSegments falls back to scaling scene seconds when words don't match", () => {
+  const scenes = [
+    { seconds: 10, voiceover: "a b" },
+    { seconds: 30, voiceover: "c d" },
+  ];
+  const segs = planSegments(scenes, [], 20);
+  assert.deepEqual(segs.map((s) => [s.start, s.end]), [[0, 5], [5, 20]]);
+});
+
+test("planSegments merges scenes that would flash by", () => {
+  const scenes = [
+    { seconds: 5, voiceover: "a b c" },
+    { seconds: 1, voiceover: "d" },
+    { seconds: 5, voiceover: "e f g" },
+  ];
+  const starts = [0, 1, 2, 3, 3.4, 4.4, 5.4];
+  const segs = planSegments(scenes, starts.map((s) => ({ start: s, end: s + 0.3 })), 7);
+  assert.deepEqual(segs.map((s) => [s.start, s.end]), [[0, 3.4], [3.4, 7]]);
+});
+
+test("assignSources: named photo wins, clip beats still, others rotate", () => {
+  const photos = [
+    { number: 1, photoPath: "p1.jpg", clipPath: "c1.mp4", clipIsVideo: true },
+    { number: 2, photoPath: "p2.jpg", clipPath: null, clipIsVideo: false },
+  ];
+  const out = assignSources(
+    [
+      { start: 0, end: 2, photoNumber: 2 },
+      { start: 2, end: 4, photoNumber: null },
+      { start: 4, end: 6, photoNumber: null },
+    ],
+    photos,
+  );
+  assert.deepEqual(out[0].source, { kind: "image", path: "p2.jpg" });
+  assert.deepEqual(out[1].source, { kind: "video", path: "c1.mp4" });
+  assert.notEqual(out[1].source.path, out[2].source.path); // no repeat back to back
+});
+
+test("buildFfmpegArgs targets 1080x1920 H.264 with the voiceover mapped", () => {
+  const args = buildFfmpegArgs({
+    segments: [
+      { kind: "video", file: "a.mp4", duration: 3 },
+      { kind: "image", file: "b.jpg", duration: 2 },
+    ],
+    audioFile: "v.mp3",
+    assFile: "/tmp/x/c.ass",
+    fontsDir: "/tmp/x/fonts",
+    outFile: "out.mp4",
+    total: 5,
+  });
+  const graph = args[args.indexOf("-filter_complex") + 1];
+  assert.match(graph, /concat=n=2/);
+  assert.match(graph, /zoompan/);
+  assert.match(graph, /ass='\/tmp\/x\/c\.ass'/);
+  assert.ok(args.includes("libx264"));
+  assert.equal(args[args.indexOf("-map", args.indexOf("[vout]")) + 1], "2:a");
+});
+
+const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0;
+
+test("real render: clip + still + captions -> 1080x1920 mp4", { skip: !hasFfmpeg }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "render-test-"));
+  try {
+    const run = (a: string[]) => execFileSync("ffmpeg", ["-y", "-loglevel", "error", ...a]);
+    run(["-f", "lavfi", "-i", "testsrc=size=720x1280:rate=24:duration=5", "-pix_fmt", "yuv420p", join(dir, "clip.mp4")]);
+    run(["-f", "lavfi", "-i", "testsrc2=size=1000x1000", "-frames:v", "1", join(dir, "photo.jpg")]);
+
+    const text = "This snack scores forty two out of one hundred. Sugar comes first. Skip it.";
+    const seconds = 9;
+    writeFileSync(join(dir, "voice.wav"), silentWav(seconds));
+    const w = wordsFromAlignment(mockAlignment(text, seconds));
+    const scenes = [
+      { seconds: 4, voiceover: "This snack scores forty two out of one hundred.", photo: 1 },
+      { seconds: 3, voiceover: "Sugar comes first.", photo: 2 },
+      { seconds: 2, voiceover: "Skip it." },
+    ];
+    const segs = assignSources(planSegments(scenes, w, seconds), [
+      { number: 1, photoPath: join(dir, "photo.jpg"), clipPath: join(dir, "clip.mp4"), clipIsVideo: true },
+      { number: 2, photoPath: join(dir, "photo.jpg"), clipPath: null, clipIsVideo: false },
+    ]);
+    writeFileSync(join(dir, "c.ass"), buildAss({ words: w, duration: seconds, fontName: "DejaVu Sans", scoreLabel: "Score 42/100" }));
+
+    const out = join(dir, "out.mp4");
+    await runFfmpeg(
+      buildFfmpegArgs({
+        segments: segs.map((s) => ({ kind: s.source.kind, file: s.source.path, duration: s.end - s.start })),
+        audioFile: join(dir, "voice.wav"),
+        assFile: join(dir, "c.ass"),
+        fontsDir: join(process.cwd(), "assets/fonts"),
+        outFile: out,
+        total: seconds,
+        preset: "ultrafast",
+      }),
+      "ffmpeg",
+    );
+
+    if (process.env.KEEP_RENDER) writeFileSync(process.env.KEEP_RENDER, readFileSync(out));
+    const probe = JSON.parse(
+      execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_name,width,height,r_frame_rate:format=duration", "-of", "json", out]).toString(),
+    );
+    const v = probe.streams.find((s: { codec_name: string }) => s.codec_name === "h264");
+    assert.equal(v.width, 1080);
+    assert.equal(v.height, 1920);
+    assert.ok(probe.streams.some((s: { codec_name: string }) => s.codec_name === "aac"));
+    assert.ok(Math.abs(Number(probe.format.duration) - seconds) < 0.3, `duration ${probe.format.duration}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

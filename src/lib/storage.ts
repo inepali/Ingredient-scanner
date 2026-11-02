@@ -43,8 +43,18 @@ export async function putMedia(
   );
 }
 
-export async function mediaUrl(bucket: MediaBucket, key: string, expiresInSeconds = 3600) {
-  return getSignedUrl(client(), new GetObjectCommand({ Bucket: bucketName(bucket), Key: key }), {
+export async function mediaUrl(
+  bucket: MediaBucket,
+  key: string,
+  expiresInSeconds = 3600,
+  downloadName?: string,
+) {
+  const command = new GetObjectCommand({
+    Bucket: bucketName(bucket),
+    Key: key,
+    ...(downloadName ? { ResponseContentDisposition: `attachment; filename="${downloadName}"` } : {}),
+  });
+  return getSignedUrl(client(), command, {
     expiresIn: expiresInSeconds,
   });
 }

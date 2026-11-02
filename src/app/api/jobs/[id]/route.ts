@@ -3,6 +3,7 @@ import { checkClip } from "@/lib/fal";
 import { getMedia, putMedia } from "@/lib/storage";
 import type { JobRow } from "@/lib/db-types";
 import { HttpError, handler, json, paramId } from "@/lib/http";
+import { RENDER_TIMEOUT_MS } from "@/lib/render";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -16,6 +17,16 @@ export const GET = handler(async (_req, ctx) => {
   const { data } = await db.from("jobs").select("*").eq("id", id).maybeSingle();
   const job = data as JobRow | null;
   if (!job) throw new HttpError("Job not found.", 404);
+
+  // A render whose function was cut off never reports back; stop waiting for it.
+  if (
+    job.step === "render" &&
+    job.status === "running" &&
+    Date.now() - new Date(job.created_at).getTime() > RENDER_TIMEOUT_MS
+  ) {
+    await db.from("jobs").update({ status: "failed", error: "Timed out." }).eq("id", id).eq("status", "running");
+    return json({ status: "failed", error: "Timed out." });
+  }
 
   if (job.step !== "i2v" || job.status !== "running") {
     return json({ status: job.status, error: job.error });

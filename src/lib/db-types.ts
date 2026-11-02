@@ -20,6 +20,7 @@ export type VideoRow = {
   audio_path: string | null;
   video_path: string | null;
   duration_s: number | null;
+  words: { text: string; start: number; end: number }[] | null;
   version: number;
 };
 
@@ -35,6 +36,7 @@ export type JobRow = {
   response_url: string | null;
   input: { media_id?: string; prompt?: string; resolution?: string; index?: number } | null;
   output: Record<string, unknown> | null;
+  created_at: string;
 };
 
 export type CopyRow = {
