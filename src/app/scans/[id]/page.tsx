@@ -7,7 +7,7 @@ import { parseScript, type VideoScript } from "@/lib/script";
 import ScriptSection from "@/components/ScriptSection";
 import { isMock } from "@/lib/mock";
 import { mediaUrl, mediaUrls, type MediaBucket } from "@/lib/storage";
-import { RENDER_TIMEOUT_MS } from "@/lib/render";
+import { isRenderStale } from "@/lib/render";
 import type { CopyRow, JobRow, MediaRow } from "@/lib/db-types";
 import VideoStudio, { type StudioCopy, type StudioMedia } from "@/components/VideoStudio";
 
@@ -149,18 +149,16 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
   }));
   const { data: renderJobs } = await db
     .from("jobs")
-    .select("id, status, error, created_at")
+    .select("id, status, error, created_at, output")
     .eq("scan_id", id)
     .eq("step", "render")
     .order("created_at", { ascending: false })
     .limit(1);
   const lastRender = renderJobs?.[0];
-  const renderStale =
-    lastRender?.status === "running" &&
-    Date.now() - new Date(lastRender.created_at as string).getTime() >= RENDER_TIMEOUT_MS;
+  const renderStale = lastRender ? isRenderStale(lastRender as { status: string; created_at: string; output: Record<string, unknown> | null }) : false;
   const activeRender = lastRender?.status === "running" && !renderStale ? lastRender : undefined;
   const renderError =
-    renderStale ? "The last render timed out." : lastRender?.status === "failed" ? ((lastRender.error as string | null) ?? "The last render failed.") : null;
+    renderStale ? "The last render stopped responding. Try again." : lastRender?.status === "failed" ? ((lastRender.error as string | null) ?? "The last render failed.") : null;
   const finalPath = (video?.video_path as string | null) ?? null;
   const videoUrl = finalPath ? await mediaUrl("videos", finalPath) : null;
   const downloadUrl = finalPath
@@ -298,6 +296,8 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
           downloadUrl={downloadUrl}
           renderJobId={(activeRender?.id as string | undefined) ?? null}
           renderError={renderError}
+          renderStartedAt={(activeRender?.created_at as string | undefined) ?? null}
+          renderProgress={(activeRender?.output as { stage?: string; percent?: number } | null | undefined) ?? null}
           copy={studioCopy}
           pendingJobs={pendingJobs}
           maxClips={Number(process.env.MAX_CLIPS ?? 4)}

@@ -7,25 +7,35 @@ import { latestVideo } from "./queries";
 import { parseScript } from "./script";
 import { buildAss } from "./captions";
 import { assignSources, planSegments, type PhotoRef } from "./timeline";
-import { buildFfmpegArgs, runFfmpeg } from "./render";
-import { writeSocialCopy } from "./social";
+import { buildFfmpegArgs, runFfmpeg, type RenderProgress } from "./render";
 import type { MediaRow } from "./db-types";
 
 const FONT_NAME = "DejaVu Sans";
 
+class Cancelled extends Error {}
+
 /**
  * Builds the final 1080x1920 video for a scan from its script, voiceover and
- * clips/photos, uploads it, then writes the post copy. Reports through the
- * `jobs` row (the browser polls it) and never throws.
+ * clips/photos and uploads it. Reports stage and percent (plus a heartbeat)
+ * through the `jobs` row, which the browser polls. Never throws.
  */
 export async function runRender(scanId: string, jobId: string): Promise<void> {
   const db = supabase();
   const dir = await mkdtemp(join(tmpdir(), "render-"));
-  const fail = async (message: string) => {
-    await db.from("jobs").update({ status: "failed", error: message }).eq("id", jobId);
+
+  let lastWrite = 0;
+  // Writes progress at most every 2.5 s unless forced. Returns false if the job was cancelled.
+  const report = async (stage: string, percent: number, force = false) => {
+    const now = Date.now();
+    if (!force && now - lastWrite < 2500) return;
+    lastWrite = now;
+    const output: RenderProgress = { stage, percent: Math.max(0, Math.min(99, Math.round(percent))), heartbeat: new Date().toISOString() };
+    const { data } = await db.from("jobs").update({ output }).eq("id", jobId).eq("status", "running").select("id");
+    if (!data || data.length === 0) throw new Cancelled();
   };
 
   try {
+    await report("Getting started", 1, true);
     const video = await latestVideo(db, scanId);
     if (!video?.script) throw new Error("Create the script first.");
     if (!video.audio_path) throw new Error("Generate the voiceover first.");
@@ -44,9 +54,10 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
     const clips = media.filter((m) => m.kind === "clip");
     if (photos.length === 0) throw new Error("Add at least one product photo first.");
 
-    // Pull everything this render needs into the temp folder.
+    // Pull everything this render needs into the temp folder (0-10%).
     const refs: PhotoRef[] = [];
     for (const [i, photo] of photos.entries()) {
+      await report(`Downloading photos and clips (${i + 1} of ${photos.length})`, 1 + (8 * i) / photos.length, true);
       const photoFile = join(dir, `photo-${i + 1}.jpg`);
       await writeFile(photoFile, await getMedia("images", photo.storage_path));
 
@@ -81,7 +92,10 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
       }),
     );
 
+    // Encode (10-90%): ffmpeg reports how many seconds of video it has written.
+    await report("Rendering video", 10, true);
     const outFile = join(dir, "final.mp4");
+    let progressError: unknown = null;
     await runFfmpeg(
       buildFfmpegArgs({
         segments: segments.map((s) => ({ kind: s.source.kind, file: s.source.path, duration: s.end - s.start })),
@@ -92,28 +106,34 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
         total,
         preset: process.env.RENDER_PRESET || "veryfast",
       }),
+      undefined,
+      (seconds) => {
+        report("Rendering video", 10 + 80 * Math.min(1, seconds / total)).catch((e) => {
+          progressError = e;
+        });
+      },
     );
+    if (progressError instanceof Cancelled) throw progressError;
 
+    await report("Uploading", 92, true);
     const key = `scans/${scanId}/final-${Date.now()}.mp4`;
     await putMedia("videos", key, await readFile(outFile), "video/mp4");
     const saved = await db.from("videos").update({ video_path: key }).eq("id", video.id);
     if (saved.error) throw new Error(`Saving the video failed: ${saved.error.message}`);
 
-    // Title, description and hashtags. A failure here must not lose the video.
-    let copyError: string | null = null;
-    try {
-      await writeSocialCopy(db, scanId);
-    } catch (err) {
-      copyError = err instanceof Error ? err.message : "Post copy failed.";
-    }
-
     await db
       .from("jobs")
-      .update({ status: "done", output: { video_path: key, seconds: Math.round(total), copy_error: copyError } })
-      .eq("id", jobId);
+      .update({ status: "done", output: { stage: "Done", percent: 100, heartbeat: new Date().toISOString(), video_path: key, seconds: Math.round(total) } })
+      .eq("id", jobId)
+      .eq("status", "running");
   } catch (err) {
+    if (err instanceof Cancelled) return; // the job row already says "failed: Cancelled"
     console.error("Render failed:", err);
-    await fail(err instanceof Error ? err.message : "Render failed.");
+    await db
+      .from("jobs")
+      .update({ status: "failed", error: err instanceof Error ? err.message : "Render failed." })
+      .eq("id", jobId)
+      .eq("status", "running");
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
   }

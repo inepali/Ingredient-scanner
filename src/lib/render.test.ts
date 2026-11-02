@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildAss, captionChunks } from "./captions.ts";
 import { assignSources, planSegments } from "./timeline.ts";
-import { buildFfmpegArgs, runFfmpeg } from "./render.ts";
+import { buildFfmpegArgs, isRenderStale, parseProgressSeconds, runFfmpeg } from "./render.ts";
 import { mockAlignment, silentWav } from "./mock.ts";
 import { wordsFromAlignment } from "./captions.ts";
 
@@ -121,6 +121,7 @@ test("real render: clip + still + captions -> 1080x1920 mp4", { skip: !hasFfmpeg
     writeFileSync(join(dir, "c.ass"), buildAss({ words: w, duration: seconds, fontName: "DejaVu Sans", scoreLabel: "Score 42/100" }));
 
     const out = join(dir, "out.mp4");
+    const progress: number[] = [];
     await runFfmpeg(
       buildFfmpegArgs({
         segments: segs.map((s) => ({ kind: s.source.kind, file: s.source.path, duration: s.end - s.start })),
@@ -132,7 +133,11 @@ test("real render: clip + still + captions -> 1080x1920 mp4", { skip: !hasFfmpeg
         preset: "ultrafast",
       }),
       "ffmpeg",
+      (sec) => progress.push(sec),
     );
+    assert.ok(progress.length > 0, "progress callback never fired");
+    assert.ok(progress[progress.length - 1] > seconds - 1, `last progress ${progress[progress.length - 1]}`);
+    assert.deepEqual([...progress].sort((a, b) => a - b), progress);
 
     if (process.env.KEEP_RENDER) writeFileSync(process.env.KEEP_RENDER, readFileSync(out));
     const probe = JSON.parse(
@@ -146,4 +151,19 @@ test("real render: clip + still + captions -> 1080x1920 mp4", { skip: !hasFfmpeg
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("parseProgressSeconds reads the latest out_time_us", () => {
+  assert.equal(parseProgressSeconds("frame=10\nout_time_us=1500000\nprogress=continue\nout_time_us=2500000\n"), 2.5);
+  assert.equal(parseProgressSeconds("frame=10\nprogress=continue\n"), null);
+});
+
+test("isRenderStale uses the heartbeat, falling back to created_at", () => {
+  const now = Date.parse("2026-11-02T12:10:00Z");
+  const base = { status: "running", created_at: "2026-11-02T12:00:00Z" };
+  assert.equal(isRenderStale(base, now), true); // no heartbeat for 10 minutes
+  assert.equal(isRenderStale({ ...base, output: { heartbeat: "2026-11-02T12:09:30Z" } }, now), false);
+  assert.equal(isRenderStale({ ...base, output: { heartbeat: "2026-11-02T12:05:00Z" } }, now), true);
+  assert.equal(isRenderStale({ ...base, status: "done" }, now), false);
+  assert.equal(isRenderStale({ status: "running", created_at: "2026-11-02T12:09:00Z" }, now), false);
 });

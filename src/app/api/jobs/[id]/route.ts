@@ -3,7 +3,7 @@ import { checkClip } from "@/lib/fal";
 import { getMedia, putMedia } from "@/lib/storage";
 import type { JobRow } from "@/lib/db-types";
 import { HttpError, handler, json, paramId } from "@/lib/http";
-import { RENDER_TIMEOUT_MS } from "@/lib/render";
+import { isRenderStale } from "@/lib/render";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -19,17 +19,14 @@ export const GET = handler(async (_req, ctx) => {
   if (!job) throw new HttpError("Job not found.", 404);
 
   // A render whose function was cut off never reports back; stop waiting for it.
-  if (
-    job.step === "render" &&
-    job.status === "running" &&
-    Date.now() - new Date(job.created_at).getTime() > RENDER_TIMEOUT_MS
-  ) {
-    await db.from("jobs").update({ status: "failed", error: "Timed out." }).eq("id", id).eq("status", "running");
-    return json({ status: "failed", error: "Timed out." });
+  if (job.step === "render" && isRenderStale(job)) {
+    const message = "The render stopped responding (the server was probably cut off). Try again.";
+    await db.from("jobs").update({ status: "failed", error: message }).eq("id", id).eq("status", "running");
+    return json({ status: "failed", error: message });
   }
 
   if (job.step !== "i2v" || job.status !== "running") {
-    return json({ status: job.status, error: job.error });
+    return json({ status: job.status, error: job.error, progress: job.step === "render" ? job.output : null });
   }
 
   const mediaId = job.input?.media_id ?? null;
@@ -98,3 +95,16 @@ async function finish(
   });
   if (error) throw new Error(`Saving clip failed: ${error.message}`);
 }
+
+// Cancels a render that is stuck or no longer wanted. The render notices on its next progress write.
+export const DELETE = handler(async (_req, ctx) => {
+  const id = await paramId(ctx);
+  const { data } = await supabase()
+    .from("jobs")
+    .update({ status: "failed", error: "Cancelled." })
+    .eq("id", id)
+    .eq("step", "render")
+    .eq("status", "running")
+    .select("id");
+  return json({ cancelled: (data ?? []).length > 0 });
+});

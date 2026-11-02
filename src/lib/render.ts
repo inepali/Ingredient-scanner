@@ -4,8 +4,30 @@ import { spawn } from "node:child_process";
 // 30 fps (clips loop to fit, stills get a slow zoom), concatenates them, burns
 // in the captions and muxes the voiceover.
 
-/** A render job still "running" after this long is treated as dead (the function was cut off). */
-export const RENDER_TIMEOUT_MS = 12 * 60 * 1000;
+/**
+ * A running render reports a heartbeat every few seconds. If none arrives for
+ * this long, the function that was rendering was cut off and the job is dead.
+ */
+export const RENDER_STALE_MS = 3 * 60 * 1000;
+
+export type RenderProgress = { stage: string; percent: number; heartbeat: string };
+
+/** True when a "running" render has gone quiet for too long. */
+export function isRenderStale(
+  job: { status: string; created_at: string; output?: Record<string, unknown> | null },
+  now = Date.now(),
+): boolean {
+  if (job.status !== "running") return false;
+  const beat = typeof job.output?.heartbeat === "string" ? job.output.heartbeat : job.created_at;
+  return now - new Date(beat).getTime() > RENDER_STALE_MS;
+}
+
+/** Seconds of output ffmpeg has produced, from a chunk of `-progress` text (or null). */
+export function parseProgressSeconds(chunk: string): number | null {
+  const matches = [...chunk.matchAll(/out_time_us=(\d+)/g)];
+  if (matches.length === 0) return null;
+  return Number(matches[matches.length - 1][1]) / 1_000_000;
+}
 
 export const WIDTH = 1080;
 export const HEIGHT = 1920;
@@ -73,6 +95,8 @@ export function buildFfmpegArgs(o: RenderOptions): string[] {
     "-b:a", "160k",
     "-movflags", "+faststart",
     "-t", o.total.toFixed(3),
+    "-progress", "pipe:1",
+    "-nostats",
     o.outFile,
   );
   return args;
@@ -90,10 +114,18 @@ export async function ffmpegPath(): Promise<string> {
   return "ffmpeg";
 }
 
-export async function runFfmpeg(args: string[], bin?: string): Promise<void> {
+export async function runFfmpeg(
+  args: string[],
+  bin?: string,
+  onProgress?: (outputSeconds: number) => void,
+): Promise<void> {
   const exe = bin ?? (await ffmpegPath());
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(exe, args, { stdio: ["ignore", "ignore", "pipe"] });
+    const child = spawn(exe, args, { stdio: ["ignore", "pipe", "pipe"] });
+    child.stdout.on("data", (d: Buffer) => {
+      const seconds = parseProgressSeconds(d.toString());
+      if (seconds !== null) onProgress?.(seconds);
+    });
     let err = "";
     child.stderr.on("data", (d: Buffer) => {
       err = (err + d.toString()).slice(-2000);
