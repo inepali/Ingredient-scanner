@@ -34,7 +34,7 @@ After the label is read, the scan is looked up on Open Food Facts (by barcode if
 - The page shows the stage, a percent bar and elapsed time, with a Cancel button. A render that goes quiet for 3 minutes is marked failed.
 - When it finishes, review the video, then press "Generate social copy" for TikTok and Instagram titles, descriptions and hashtags. Edit and save them per platform.
 - Runs in the same server via `after()`; the route allows up to 300 s (`maxDuration`). Check your Vercel plan's limit. `npm run dev` on your own machine has no limit.
-- `ffmpeg-static` supplies the binary; set `FFMPEG_PATH` to use your own. The caption font (DejaVu Sans Bold) lives in `assets/fonts`.
+- ffmpeg is found automatically: `FFMPEG_PATH`, then the `ffmpeg-static` package (installed by `npm install`), then `ffmpeg` on your PATH (macOS: `brew install ffmpeg`). If none is found the Generate video button says so right away. The caption font (DejaVu Sans Bold) lives in `assets/fonts`.
 - Source clips are 480p/720p, so the 1080x1920 output is upscaled: text is sharp, footage is not truly 1080p.
 
 ## Cost guards

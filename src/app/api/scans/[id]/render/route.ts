@@ -1,7 +1,7 @@
 import { after } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { latestVideo } from "@/lib/queries";
-import { isRenderStale } from "@/lib/render";
+import { ffmpegPath, isRenderStale } from "@/lib/render";
 import type { JobRow } from "@/lib/db-types";
 import { runRender } from "@/lib/render-job";
 import { HttpError, handler, json, paramId } from "@/lib/http";
@@ -14,6 +14,8 @@ export const maxDuration = 300;
 export const POST = handler(async (_req, ctx) => {
   const id = await paramId(ctx);
   const db = supabase();
+
+  await ffmpegPath(); // fail now with a clear message instead of inside the background job
 
   const video = await latestVideo(db, id);
   if (!video?.script) throw new HttpError("Create the script first.");

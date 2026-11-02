@@ -1,4 +1,6 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 // Builds and runs one ffmpeg command: normalizes every segment to 1080x1920 at
 // 30 fps (clips loop to fit, stills get a slow zoom), concatenates them, burns
@@ -102,16 +104,48 @@ export function buildFfmpegArgs(o: RenderOptions): string[] {
   return args;
 }
 
-/** Path to ffmpeg: FFMPEG_PATH, the ffmpeg-static binary, or `ffmpeg` on PATH. */
+/** True if `p` is an ffmpeg we can run (a real file, or a command found on PATH). */
+function works(p: string): boolean {
+  if (/[\\/]/.test(p)) return existsSync(p);
+  return spawnSync(p, ["-version"], { stdio: "ignore" }).status === 0;
+}
+
+let cachedPath: string | null = null;
+
+/**
+ * Finds ffmpeg: FFMPEG_PATH, the ffmpeg-static binary, `ffmpeg` on PATH, then
+ * the usual install folders. Throws a message that says how to fix it.
+ */
 export async function ffmpegPath(): Promise<string> {
-  if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH;
+  if (cachedPath) return cachedPath;
+
+  const candidates: string[] = [];
+  if (process.env.FFMPEG_PATH) candidates.push(process.env.FFMPEG_PATH);
   try {
     const mod = (await import("ffmpeg-static")) as unknown as { default?: string | null };
-    if (mod.default) return mod.default;
+    if (mod.default) candidates.push(mod.default);
   } catch {
-    // not installed; fall through to PATH
+    // package not installed; try the other places
   }
-  return "ffmpeg";
+  const exe = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
+  candidates.push(
+    join(process.cwd(), "node_modules", "ffmpeg-static", exe),
+    "ffmpeg",
+    "/opt/homebrew/bin/ffmpeg",
+    "/usr/local/bin/ffmpeg",
+    "/usr/bin/ffmpeg",
+  );
+
+  for (const c of candidates) {
+    if (works(c)) {
+      cachedPath = c;
+      return c;
+    }
+  }
+  throw new Error(
+    "ffmpeg was not found. Run `npm install` (it installs ffmpeg-static), or install ffmpeg yourself " +
+      "(macOS: `brew install ffmpeg`) and restart the server, or set FFMPEG_PATH to its full path.",
+  );
 }
 
 export async function runFfmpeg(

@@ -167,3 +167,15 @@ test("isRenderStale uses the heartbeat, falling back to created_at", () => {
   assert.equal(isRenderStale({ ...base, status: "done" }, now), false);
   assert.equal(isRenderStale({ status: "running", created_at: "2026-11-02T12:09:00Z" }, now), false);
 });
+
+test("ffmpegPath skips a bad FFMPEG_PATH and finds a working ffmpeg", { skip: !hasFfmpeg }, async () => {
+  const { ffmpegPath } = await import("./render.ts");
+  process.env.FFMPEG_PATH = "/definitely/not/here/ffmpeg";
+  try {
+    const found = await ffmpegPath();
+    assert.notEqual(found, "/definitely/not/here/ffmpeg");
+    assert.equal(spawnSync(found, ["-version"]).status, 0);
+  } finally {
+    delete process.env.FFMPEG_PATH;
+  }
+});
