@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { bandFor, type Band } from "@/lib/scoring";
+import { parseScript, type VideoScript } from "@/lib/script";
+import ScriptSection from "@/components/ScriptSection";
 
 export const dynamic = "force-dynamic";
 
@@ -48,13 +50,14 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
     .eq("id", id)
     .maybeSingle();
   if (!scan) notFound();
+  if (scan.status === "created") redirect(`/new/${id}`);
 
   if (scan.status !== "analyzed" || scan.overall_score === null) {
     return (
       <div className="space-y-4">
         <p>This scan {scan.status === "failed" ? "failed" : "is still being analyzed"}.</p>
-        <Link href="/" className="underline">
-          Try another label
+        <Link href={`/new/${id}`} className="underline">
+          {scan.status === "failed" ? "Retake the label photo and retry" : "Back to this scan's photos"}
         </Link>
       </div>
     );
@@ -67,6 +70,23 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
     .order("position");
   const ingredients = (data ?? []) as Ingredient[];
 
+  const { data: video } = await db
+    .from("videos")
+    .select("script")
+    .eq("scan_id", id)
+    .not("script", "is", null)
+    .order("version", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let latestScript: VideoScript | null = null;
+  if (video?.script) {
+    try {
+      latestScript = parseScript(video.script);
+    } catch {
+      // unreadable stored script; show the button instead
+    }
+  }
+
   const overall: number = scan.overall_score;
   const overallBand = bandFor(overall);
   const R = 54;
@@ -75,9 +95,14 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="space-y-8">
-      <Link href="/" className="text-sm text-neutral-500 underline">
-        ← New scan
-      </Link>
+      <div className="flex gap-4 text-sm text-neutral-500">
+        <Link href="/" className="underline">
+          ← New scan
+        </Link>
+        <Link href="/history" className="underline">
+          History
+        </Link>
+      </div>
 
       <header className="flex items-center gap-6">
         <svg viewBox="0 0 120 120" className="h-32 w-32 shrink-0 -rotate-90" role="img" aria-label={`Overall score ${overall} out of 100`}>
@@ -139,6 +164,8 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
           ))}
         </ol>
       </section>
+
+      <ScriptSection scanId={id} initial={latestScript} />
 
       <p className="text-xs text-neutral-400">
         Scores are a general nutrition rubric, not medical advice.

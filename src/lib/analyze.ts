@@ -47,7 +47,44 @@ Rules: list sub-ingredients of compound ingredients as their own entries right a
 
 type AnthropicResponse = { content?: { type: string; text?: string }[] };
 
+type GeminiResponse = { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+
+const GEMINI_MODEL = (process.env.GEMINI_MODEL ?? "gemini-2.5-flash").replace(/^models\//, "");
+
+async function analyzeWithGemini(image: Buffer, mediaType: string, key: string) {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    {
+      method: "POST",
+      headers: { "x-goog-api-key": key, "content-type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { inline_data: { mime_type: mediaType, data: image.toString("base64") } },
+              { text: PROMPT },
+            ],
+          },
+        ],
+        generationConfig: { responseMimeType: "application/json", maxOutputTokens: 8000 },
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    throw new Error(`Gemini API ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  }
+
+  const body = (await res.json()) as GeminiResponse;
+  const text = (body.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("");
+  return parseAnalysis(text);
+}
+
+// Uses Gemini when GEMINI_API_KEY is set, otherwise Claude.
 export async function analyzeLabel(image: Buffer, mediaType: string): Promise<LabelAnalysis> {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (geminiKey) return analyzeWithGemini(image, mediaType, geminiKey);
+
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error("ANTHROPIC_API_KEY is not set");
 
