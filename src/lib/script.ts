@@ -1,8 +1,8 @@
-import { generateText } from "./llm.ts";
+import { generateText, type LlmImage } from "./llm.ts";
 
 // A ~60s vertical social video, split into scenes. Each scene carries a visual
 // prompt (for an image-to-video model such as fal.ai) and its voiceover line.
-export type VideoScene = { seconds: number; visual: string; voiceover: string };
+export type VideoScene = { seconds: number; visual: string; voiceover: string; photo?: number };
 export type VideoScript = { title: string; scenes: VideoScene[] };
 
 export type ScriptInput = {
@@ -12,9 +12,12 @@ export type ScriptInput = {
   ingredients: { name: string; score: number; reason: string | null }[];
   /** Open Food Facts cross-check, when the product was matched. */
   offFacts?: string | null;
+  /** Photos of the real product sent with the request, numbered from 1 in the prompt. */
+  photos?: LlmImage[];
 };
 
 function buildPrompt(i: ScriptInput) {
+  const photoCount = Math.min(i.photos?.length ?? 0, 4);
   const list = i.ingredients
     .slice(0, 40)
     .map((x) => `${x.name} (${x.score}/100${x.reason ? `: ${x.reason}` : ""})`)
@@ -28,8 +31,18 @@ ${i.offFacts ? `Open Food Facts says: ${i.offFacts}\n` : ""}Ingredients in label
 ${list}
 
 Return ONLY a JSON object (no markdown fences) shaped like:
-{ "title": string, "scenes": [ { "seconds": integer, "visual": string, "voiceover": string } ] }
+{ "title": string, "scenes": [ { "seconds": integer, "visual": string, "voiceover": string${photoCount ? ", \"photo\": integer" : ""} } ] }
 
+${
+    photoCount
+      ? `
+${photoCount} photo${photoCount === 1 ? "" : "s"} of the actual product ${photoCount === 1 ? "is" : "are"} attached, numbered 1 to ${photoCount} in the order shown. Look at ${photoCount === 1 ? "it" : "them"} and:
+- Write each "visual" about what is really visible (the packaging, colors, shape, setting), and set "photo" to the number of the photo that scene should animate. Use every photo at least once; scenes without a matching photo may omit "photo".
+- Treat text printed on the packaging (for example "natural", "low sugar") as marketing, not fact. The scores above are the facts.
+- Do not name a brand unless it is clearly printed on the product.
+`
+      : ""
+  }
 Rules:
 - 6 to 8 scenes whose "seconds" add up to about 60.
 - Scene 1 is a hook in the first 3 seconds; the last scene is a short call to action.
@@ -53,7 +66,13 @@ export function parseScript(text: string): VideoScript {
     const voiceover = typeof o.voiceover === "string" ? o.voiceover.trim() : "";
     const seconds = Math.round(Number(o.seconds));
     if (!visual || !voiceover) continue;
-    scenes.push({ seconds: Number.isFinite(seconds) && seconds > 0 ? seconds : 8, visual, voiceover });
+    const photo = Math.round(Number(o.photo));
+    scenes.push({
+      seconds: Number.isFinite(seconds) && seconds > 0 ? seconds : 8,
+      visual,
+      voiceover,
+      ...(Number.isInteger(photo) && photo >= 1 && photo <= 12 ? { photo } : {}),
+    });
   }
   if (scenes.length === 0) throw new Error("Model returned no scenes");
 
@@ -62,7 +81,7 @@ export function parseScript(text: string): VideoScript {
 }
 
 export async function createScript(input: ScriptInput): Promise<VideoScript> {
-  return parseScript(await generateText(buildPrompt(input)));
+  return parseScript(await generateText(buildPrompt(input), input.photos ?? []));
 }
 
 /** The full spoken narration: every scene's voiceover line, in order. */

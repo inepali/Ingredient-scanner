@@ -81,3 +81,16 @@ test("offFactsLine summarises grades", () => {
   assert.equal(offFactsLine({ nutriscore: "c", nova: 4, green: "a-plus" }), "Nutri-Score C, NOVA group 4 of 4, Green-Score A+");
   assert.equal(offFactsLine(null), null);
 });
+
+import { parseScript } from "./script.ts";
+
+test("parseScript keeps a valid photo number and drops bad ones", () => {
+  const out = parseScript(
+    '{"title":"T","scenes":[{"seconds":5,"visual":"a","voiceover":"x","photo":2},' +
+      '{"seconds":5,"visual":"b","voiceover":"y","photo":"none"},' +
+      '{"seconds":5,"visual":"c","voiceover":"z","photo":99}]}',
+  );
+  assert.equal(out.scenes[0].photo, 2);
+  assert.equal(out.scenes[1].photo, undefined);
+  assert.equal(out.scenes[2].photo, undefined);
+});

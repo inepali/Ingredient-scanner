@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { createScript, offFactsLine } from "@/lib/script";
+import { getMedia } from "@/lib/storage";
+import type { LlmImage } from "@/lib/llm";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -24,6 +26,25 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     .eq("scan_id", id)
     .order("position");
 
+  // Product photos, so the script describes what the product really looks like.
+  const { data: photoRows } = await db
+    .from("scan_media")
+    .select("storage_path")
+    .eq("scan_id", id)
+    .eq("kind", "product_image")
+    .order("sort_order")
+    .limit(4);
+  const photos: LlmImage[] = [];
+  for (const row of photoRows ?? []) {
+    try {
+      const path = row.storage_path as string;
+      const mediaType = path.endsWith(".png") ? "image/png" : path.endsWith(".webp") ? "image/webp" : "image/jpeg";
+      photos.push({ data: await getMedia("images", path), mediaType });
+    } catch {
+      // a missing photo shouldn't block the script
+    }
+  }
+
   const { data: job } = await db
     .from("jobs")
     .insert({ scan_id: id, step: "script", status: "running" })
@@ -36,6 +57,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       overall: scan.overall_score,
       allergens: scan.allergens ?? [],
       offFacts: offFactsLine(scan.off_data),
+      photos,
       ingredients: (ings ?? []).map((i) => ({ name: i.raw_name, score: i.score, reason: i.reason })),
     });
 

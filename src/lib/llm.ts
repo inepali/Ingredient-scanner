@@ -4,7 +4,14 @@
 type GeminiResponse = { candidates?: { content?: { parts?: { text?: string }[] } }[] };
 type AnthropicResponse = { content?: { type: string; text?: string }[] };
 
-export async function generateText(prompt: string): Promise<string> {
+export type LlmImage = { data: Buffer; mediaType: string };
+
+// Gemini caps a request near 20 MB and Claude caps an image near 5 MB (after base64).
+const MAX_IMAGES = 4;
+const MAX_IMAGE_BYTES = 3.5 * 1024 * 1024;
+
+export async function generateText(prompt: string, images: LlmImage[] = []): Promise<string> {
+  const pics = images.filter((i) => i.data.length <= MAX_IMAGE_BYTES).slice(0, MAX_IMAGES);
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey) {
     const model = (process.env.GEMINI_MODEL ?? "gemini-2.5-flash").replace(/^models\//, "");
@@ -14,7 +21,14 @@ export async function generateText(prompt: string): Promise<string> {
         method: "POST",
         headers: { "x-goog-api-key": geminiKey, "content-type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [
+            {
+              parts: [
+                ...pics.map((i) => ({ inline_data: { mime_type: i.mediaType, data: i.data.toString("base64") } })),
+                { text: prompt },
+              ],
+            },
+          ],
           generationConfig: { responseMimeType: "application/json", maxOutputTokens: 8000 },
         }),
       },
@@ -32,7 +46,18 @@ export async function generateText(prompt: string): Promise<string> {
     body: JSON.stringify({
       model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5",
       max_tokens: 4000,
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        {
+          role: "user",
+          content: [
+            ...pics.map((i) => ({
+              type: "image",
+              source: { type: "base64", media_type: i.mediaType, data: i.data.toString("base64") },
+            })),
+            { type: "text", text: prompt },
+          ],
+        },
+      ],
     }),
   });
   if (!res.ok) throw new Error(`Anthropic API ${res.status}: ${(await res.text()).slice(0, 300)}`);

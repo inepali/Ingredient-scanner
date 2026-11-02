@@ -56,7 +56,7 @@ export default function ScriptSection({
             {initial.scenes.map((s, i) => (
               <li key={i} className="rounded-lg border bg-white p-3 text-sm">
                 <p className="text-xs text-neutral-500">
-                  Scene {i + 1} · {s.seconds}s
+                  Scene {i + 1} · {s.seconds}s{s.photo ? ` · photo ${s.photo}` : ""}
                 </p>
                 <p className="mt-1">
                   <span className="font-medium">Visual:</span> {s.visual}

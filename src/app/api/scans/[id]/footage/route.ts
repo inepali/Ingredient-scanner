@@ -67,10 +67,10 @@ export const POST = handler(async (req, ctx) => {
 
   // Scene visuals from the script make better motion prompts than the generic ones.
   const video = await latestVideo(db, id);
-  let visuals: string[] = [];
+  let scenes: { visual: string; photo?: number }[] = [];
   if (video?.script) {
     try {
-      visuals = parseScript(video.script).scenes.map((s) => s.visual);
+      scenes = parseScript(video.script).scenes;
     } catch {
       // fall back to the generic prompts
     }
@@ -80,7 +80,10 @@ export const POST = handler(async (req, ctx) => {
 
   for (const [i, photo] of batch.entries()) {
     const index = clips.length + running.length + i;
-    const prompt = visuals[index % Math.max(visuals.length, 1)] ?? motionPrompt(index);
+    // Prefer the scene written for this exact photo; otherwise take scenes in turn.
+    const photoNumber = photos.findIndex((p) => p.id === photo.id) + 1;
+    const scene = scenes.find((s) => s.photo === photoNumber) ?? scenes[index % Math.max(scenes.length, 1)];
+    const prompt = scene?.visual ?? motionPrompt(index);
 
     let externalId: string;
     let statusUrl: string | null = null;
