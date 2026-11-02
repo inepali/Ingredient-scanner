@@ -12,7 +12,7 @@ const MAX_BYTES = 4 * 1024 * 1024;
 
 type RefRow = { id: string; canonical_name: string; aliases: string[] | null; score: number };
 
-export async function POST(req: Request) {
+async function handle(req: Request) {
   const form = await req.formData();
   const label = form.get("label");
 
@@ -114,5 +114,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ id: scanId });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Analysis failed.", 500);
+  }
+}
+
+// Anything thrown before the inner try/catch (missing env vars, bad form data)
+// would otherwise come back as an empty 500 and break the browser's res.json().
+export async function POST(req: Request) {
+  try {
+    return await handle(req);
+  } catch (err) {
+    console.error("POST /api/scans failed:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Unexpected server error." },
+      { status: 500 },
+    );
   }
 }

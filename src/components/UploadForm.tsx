@@ -48,8 +48,21 @@ export default function UploadForm() {
       body.set("label", new File([blob], "label.jpg", { type: "image/jpeg" }));
 
       const res = await fetch("/api/scans", { method: "POST", body });
-      const json = (await res.json()) as { id?: string; error?: string };
-      if (!res.ok || !json.id) throw new Error(json.error ?? "Something went wrong.");
+      const raw = await res.text();
+      let json: { id?: string; error?: string } = {};
+      try {
+        json = raw ? (JSON.parse(raw) as typeof json) : {};
+      } catch {
+        // non-JSON body (e.g. a platform error page); fall through to the status message
+      }
+      if (!res.ok || !json.id) {
+        throw new Error(
+          json.error ??
+            (res.status === 413
+              ? "The photo is too large for the server."
+              : `Server error (HTTP ${res.status}). Check the server logs.`),
+        );
+      }
       router.push(`/scans/${json.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
