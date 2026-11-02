@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { downscale, readJson } from "@/lib/image";
 import { MAX_PRODUCT_IMAGES, type MediaItem } from "@/lib/media";
+import CameraCapture from "./CameraCapture";
 
 // Label + product photo slots for one scan. Used on the desktop page and on the
 // phone page (opened from the QR code); both poll, so photos added on the phone
@@ -17,6 +18,9 @@ export default function MediaUploader({
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [camera, setCamera] = useState<MediaItem["kind"] | null>(null);
+  // Phones over plain http have no getUserMedia; their file input's capture attribute opens the camera instead.
+  const captureInputs = useRef<Record<string, HTMLInputElement | null>>({});
   const onMediaRef = useRef(onMedia);
   onMediaRef.current = onMedia;
 
@@ -37,7 +41,12 @@ export default function MediaUploader({
     return () => clearInterval(timer);
   }, [refresh]);
 
-  async function upload(kind: MediaItem["kind"], files: FileList | null) {
+  function openCamera(kind: MediaItem["kind"]) {
+    if (window.isSecureContext && typeof navigator.mediaDevices?.getUserMedia === "function") setCamera(kind);
+    else captureInputs.current[kind]?.click();
+  }
+
+  async function upload(kind: MediaItem["kind"], files: FileList | File[] | null) {
     if (!files || files.length === 0) return;
     setBusy(true);
     setError(null);
@@ -70,14 +79,44 @@ export default function MediaUploader({
   const label = media.find((m) => m.kind === "label");
   const products = media.filter((m) => m.kind === "product_image");
 
-  const picker =
-    "block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-neutral-900 file:px-4 file:py-2 file:text-white disabled:opacity-50";
+  const btn = "rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50";
+  const primary = `${btn} bg-neutral-900 text-white`;
+  const secondary = `${btn} border border-neutral-300 bg-white text-neutral-900`;
+
+  function pickers(kind: MediaItem["kind"], disabled: boolean, multiple: boolean) {
+    const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      upload(kind, e.target.files);
+      e.target.value = "";
+    };
+    return (
+      <div className="flex flex-wrap gap-2">
+        <button type="button" disabled={disabled} onClick={() => openCamera(kind)} className={primary}>
+          Use Camera
+        </button>
+        <label className={`${secondary} cursor-pointer ${disabled ? "pointer-events-none opacity-50" : ""}`}>
+          {multiple ? "Choose Files" : "Choose File"}
+          <input type="file" accept="image/*" multiple={multiple} disabled={disabled} onChange={onChange} className="hidden" />
+        </label>
+        <input
+          ref={(el) => {
+            captureInputs.current[kind] = el;
+          }}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          disabled={disabled}
+          onChange={onChange}
+          className="hidden"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <section className="space-y-2">
         <h2 className="text-sm font-medium">1. Ingredient label photo (required)</h2>
-        <input type="file" accept="image/*" disabled={busy} onChange={(e) => { upload("label", e.target.files); e.target.value = ""; }} className={picker} />
+        {pickers("label", busy, false)}
         {label && (
           <div className="relative">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -93,14 +132,7 @@ export default function MediaUploader({
         <h2 className="text-sm font-medium">
           2. Product photos for the video ({products.length}/{MAX_PRODUCT_IMAGES})
         </h2>
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          disabled={busy || products.length >= MAX_PRODUCT_IMAGES}
-          onChange={(e) => { upload("product_image", e.target.files); e.target.value = ""; }}
-          className={picker}
-        />
+        {pickers("product_image", busy || products.length >= MAX_PRODUCT_IMAGES, true)}
         {products.length > 0 && (
           <ul className="grid grid-cols-3 gap-2">
             {products.map((p) => (
@@ -115,6 +147,17 @@ export default function MediaUploader({
           </ul>
         )}
       </section>
+
+      {camera && (
+        <CameraCapture
+          onCapture={(file) => {
+            const kind = camera;
+            setCamera(null);
+            upload(kind, [file]);
+          }}
+          onClose={() => setCamera(null)}
+        />
+      )}
 
       {busy && <p className="text-sm text-neutral-500">Uploading…</p>}
       {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
