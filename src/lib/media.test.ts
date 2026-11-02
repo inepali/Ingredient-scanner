@@ -106,3 +106,18 @@ test("narration joins every scene voiceover in order", () => {
   );
   assert.equal(narration(script), "Hello there. Score is 42.");
 });
+
+import { parseVoices } from "./elevenlabs.ts";
+
+test("parseVoices puts free default voices first and labels them", () => {
+  const voices = parseVoices({
+    voices: [
+      { voice_id: "b", name: "Zed", category: "professional", labels: { accent: "british" } },
+      { voice_id: "a", name: "Sarah", category: "premade", labels: { gender: "female", accent: "american" } },
+      { name: "no id" },
+    ],
+  });
+  assert.deepEqual(voices.map((v) => [v.name, v.free]), [["Sarah", true], ["Zed", false]]);
+  assert.equal(voices[0].description, "female, american");
+  assert.deepEqual(parseVoices(null), []);
+});

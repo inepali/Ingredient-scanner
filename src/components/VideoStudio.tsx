@@ -70,7 +70,19 @@ export default function VideoStudio(props: StudioProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [voices, setVoices] = useState<{ id: string; name: string; free: boolean; description: string | null }[]>([]);
+  const [voiceId, setVoiceId] = useState("");
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const [resolution, setResolution] = useState<"480p" | "720p">(props.defaultResolution);
+
+  useEffect(() => {
+    call<{ voices: typeof voices; selected: string }>("/api/voices")
+      .then((r) => {
+        setVoices(r.voices);
+        setVoiceId(r.selected);
+      })
+      .catch((e) => setVoiceError(e instanceof Error ? e.message : "Could not load voices."));
+  }, []);
 
   // While clips are rendering, poll their jobs; refresh the page data when any finishes.
   const pendingKey = [...pendingJobs.map((j) => j.id), ...(renderJobId ? [renderJobId] : [])].join(",");
@@ -126,6 +138,26 @@ export default function VideoStudio(props: StudioProps) {
 
       <section className={card}>
         <h3 className="font-medium">1. AI voice</h3>
+        {voices.length > 0 && (
+          <label className="block space-y-1 text-sm">
+            <span className="text-neutral-500">Voice</span>
+            <select
+              value={voiceId}
+              onChange={(e) => setVoiceId(e.target.value)}
+              disabled={busy !== null}
+              className="w-full rounded-md border px-2 py-2"
+            >
+              {voices.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
+                  {v.description ? ` · ${v.description}` : ""}
+                  {v.free ? "" : " (paid plan only)"}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {voiceError && <p className="text-xs text-amber-700">{voiceError}</p>}
         <button
           className={btn}
           disabled={busy !== null || !hasScript}
@@ -133,7 +165,7 @@ export default function VideoStudio(props: StudioProps) {
             run("voice", async () => {
               const r = await postJson<{ characters: number; warning: string | null; mock: boolean }>(
                 `/api/scans/${scanId}/voice`,
-                {},
+                voiceId ? { voice_id: voiceId } : {},
               );
               return r.warning ?? `Voiceover ready (${r.characters} characters${r.mock ? ", mock" : ""}).`;
             })

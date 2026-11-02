@@ -41,6 +41,10 @@ export const POST = handler(async (req, ctx) => {
     .maybeSingle();
   const voiceId: string =
     body.voice_id || settings?.default_voice_id || process.env.ELEVENLABS_VOICE_ID || "";
+  // A voice picked in the UI becomes the default for next time.
+  if (body.voice_id && body.voice_id !== settings?.default_voice_id) {
+    await db.from("settings").upsert({ id: 1, default_voice_id: body.voice_id });
+  }
   if (!voiceId && !isMock()) {
     throw new HttpError("Set ELEVENLABS_VOICE_ID in .env.local first (any voice id from your ElevenLabs account).");
   }
