@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { createScript } from "@/lib/script";
+import { createScript, offFactsLine } from "@/lib/script";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -11,7 +11,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const { data: scan } = await db
     .from("scans")
-    .select("id, product_name, status, overall_score, allergens")
+    .select("id, product_name, status, overall_score, allergens, off_data")
     .eq("id", id)
     .maybeSingle();
   if (!scan || scan.status !== "analyzed" || scan.overall_score === null) {
@@ -35,6 +35,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       productName: scan.product_name,
       overall: scan.overall_score,
       allergens: scan.allergens ?? [],
+      offFacts: offFactsLine(scan.off_data),
       ingredients: (ings ?? []).map((i) => ({ name: i.raw_name, score: i.score, reason: i.reason })),
     });
 

@@ -11,6 +11,7 @@ export type CopyInput = {
   productName: string | null;
   overall: number;
   scriptTitle: string | null;
+  offFacts?: string | null;
   ingredients: { name: string; score: number }[]; // label order
 };
 
@@ -66,7 +67,7 @@ Facts (use ONLY these; do not invent numbers, brands or health claims):
 - Product: ${i.productName ?? "unnamed product"}
 - Overall score: ${i.overall}/100 (100 = healthiest)
 - Video title: ${i.scriptTitle ?? "n/a"}
-- Lowest scoring (score): ${list(byScore.slice(0, 3))}
+${i.offFacts ? `- Open Food Facts: ${i.offFacts}\n` : ""}- Lowest scoring (score): ${list(byScore.slice(0, 3))}
 - Highest scoring (score): ${list(byScore.slice(-2).reverse())}
 
 Return ONLY a JSON object, no markdown fences:

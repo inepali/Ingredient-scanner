@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { bandFor, type Band } from "@/lib/scoring";
+import type { OffSummary } from "@/lib/openfoodfacts";
 import { parseScript, type VideoScript } from "@/lib/script";
 import ScriptSection from "@/components/ScriptSection";
 import { isMock } from "@/lib/mock";
@@ -44,13 +45,22 @@ type Ingredient = {
   provisional: boolean;
 };
 
+function Badge({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="rounded-md border px-2 py-1">
+      <span className="text-neutral-500">{label} </span>
+      <strong>{value}</strong>
+    </span>
+  );
+}
+
 export default async function ScanPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = supabase();
 
   const { data: scan } = await db
     .from("scans")
-    .select("id, product_name, status, overall_score, allergens")
+    .select("id, product_name, status, overall_score, allergens, label_score, external_score, off_data")
     .eq("id", id)
     .maybeSingle();
   if (!scan) notFound();
@@ -143,6 +153,7 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
   const R = 54;
   const C = 2 * Math.PI * R;
   const allergens: string[] = scan.allergens ?? [];
+  const off = (scan.off_data ?? null) as OffSummary | null;
 
   return (
     <div className="space-y-8">
@@ -190,6 +201,44 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
           )}
         </div>
       </header>
+
+      {off && (
+        <section className="space-y-2 rounded-xl border bg-white p-4 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-medium">Cross-checked with Open Food Facts</h2>
+            <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+              {off.matchedBy === "barcode" ? "barcode match" : `${Math.round(off.confidence * 100)}% name + ingredient match`}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {off.nutriscore && <Badge label="Nutri-Score" value={off.nutriscore.toUpperCase()} />}
+            {off.nova && <Badge label="NOVA" value={`${off.nova} of 4`} />}
+            {off.green && <Badge label="Green-Score" value={off.green === "a-plus" ? "A+" : off.green.toUpperCase()} />}
+            {off.palmOil !== null && <Badge label="Palm oil" value={off.palmOil ? "yes" : "none"} />}
+            {off.additives.length > 0 && <Badge label="Additives" value={String(off.additives.length)} />}
+          </div>
+          <p className="text-neutral-600">
+            Ingredient score {scan.label_score ?? "—"}
+            {scan.external_score !== null && ` · Open Food Facts score ${scan.external_score}`} → overall {overall}.
+          </p>
+          {(off.nutrients.sugars_100g !== undefined || off.nutrients.salt_100g !== undefined) && (
+            <p className="text-neutral-500">
+              Per 100 g:
+              {off.nutrients.sugars_100g !== undefined && ` sugars ${off.nutrients.sugars_100g} g`}
+              {off.nutrients.saturated_fat_100g !== undefined && ` · saturated fat ${off.nutrients.saturated_fat_100g} g`}
+              {off.nutrients.salt_100g !== undefined && ` · salt ${off.nutrients.salt_100g} g`}
+              {off.nutrients.fiber_100g !== undefined && ` · fiber ${off.nutrients.fiber_100g} g`}
+            </p>
+          )}
+          <p className="text-xs text-neutral-400">
+            Matched “{off.name ?? off.code}”{off.brands ? ` (${off.brands})` : ""}. Data from{" "}
+            <a href={off.url} className="underline" target="_blank" rel="noreferrer">
+              Open Food Facts
+            </a>{" "}
+            (ODbL).
+          </p>
+        </section>
+      )}
 
       <section>
         <h2 className="mb-3 text-lg font-medium">Ingredients ({ingredients.length})</h2>

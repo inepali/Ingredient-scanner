@@ -10,6 +10,8 @@ export type ScriptInput = {
   overall: number;
   allergens: string[];
   ingredients: { name: string; score: number; reason: string | null }[];
+  /** Open Food Facts cross-check, when the product was matched. */
+  offFacts?: string | null;
 };
 
 function buildPrompt(i: ScriptInput) {
@@ -22,7 +24,7 @@ function buildPrompt(i: ScriptInput) {
 Product: ${i.productName ?? "unnamed product"}
 Overall score: ${i.overall}/100 (100 is healthiest)
 Allergens: ${i.allergens.join(", ") || "none stated"}
-Ingredients in label order with scores:
+${i.offFacts ? `Open Food Facts says: ${i.offFacts}\n` : ""}Ingredients in label order with scores:
 ${list}
 
 Return ONLY a JSON object (no markdown fences) shaped like:
@@ -33,7 +35,7 @@ Rules:
 - Scene 1 is a hook in the first 3 seconds; the last scene is a short call to action.
 - "visual": one concrete sentence describing what is on screen, written as a prompt for an image-to-video model (subject, setting, camera movement). No on-screen text, no logos, no real people's names.
 - "voiceover": the spoken line, conversational, about 2.5 words per second of the scene.
-- Highlight the 2-3 best and worst ingredients using only the facts and scores above. Do not invent ingredients.
+- Highlight the 2-3 best and worst ingredients using only the facts and scores above. Do not invent ingredients. If Open Food Facts grades are given, you may mention them by name (Nutri-Score, NOVA, Green-Score) and nothing beyond them.
 - No medical or disease claims, no "cures", "detox" or weight-loss promises. Say "may" and keep it about nutrition and processing.`;
 }
 
@@ -70,4 +72,19 @@ export function narration(script: VideoScript): string {
     .filter(Boolean)
     .join(" ")
     .replace(/\s+/g, " ");
+}
+
+/** One line of Open Food Facts grades for prompts, or null if there is nothing to say. */
+export function offFactsLine(off: {
+  nutriscore: string | null;
+  nova: number | null;
+  green: string | null;
+} | null): string | null {
+  if (!off) return null;
+  const parts = [
+    off.nutriscore && `Nutri-Score ${off.nutriscore.toUpperCase()}`,
+    off.nova && `NOVA group ${off.nova} of 4`,
+    off.green && `Green-Score ${off.green === "a-plus" ? "A+" : off.green.toUpperCase()}`,
+  ].filter(Boolean);
+  return parts.length ? parts.join(", ") : null;
 }

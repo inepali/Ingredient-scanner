@@ -11,6 +11,7 @@ export type AnalyzedIngredient = {
 export type LabelAnalysis = {
   legible: boolean;
   product_name: string | null;
+  barcode: string | null;
   ingredients: AnalyzedIngredient[];
   allergens: string[];
 };
@@ -23,6 +24,7 @@ Return ONLY a JSON object (no markdown fences, no commentary) with this shape:
 {
   "legible": boolean,
   "product_name": string | null,
+  "barcode": string | null,
   "ingredients": [
     {
       "raw_name": string,
@@ -37,6 +39,7 @@ Return ONLY a JSON object (no markdown fences, no commentary) with this shape:
 Field rules:
 - legible: false if you cannot read an ingredient list in the photo.
 - product_name: only if it is printed in this photo, otherwise null.
+- barcode: the EAN/UPC digits only if a barcode number is printed in this photo, otherwise null.
 - raw_name: the ingredient as printed, without percentages or parenthetical detail.
 - canonical_name: the plain lowercase common name (for example "cane sugar" for "Organic Evaporated Cane Juice").
 - provisional_score: 0-100 where 100 is healthiest. Guide: 80-100 whole or minimally processed foods (vegetables, legumes, whole grains, nuts, water); 60-79 lightly processed (olive oil, spices, vinegar, dairy); 40-59 refined or neutral (refined flour, salt, natural flavors); 20-39 added sugars, refined seed oils, many additives; 0-19 partially hydrogenated oils, some synthetic dyes and preservatives.
@@ -158,6 +161,8 @@ export function parseAnalysis(text: string): LabelAnalysis {
     typeof data.product_name === "string" && data.product_name.trim()
       ? data.product_name.trim()
       : null;
+  const barcodeRaw = typeof data.barcode === "string" ? data.barcode.replace(/\D/g, "") : "";
+  const barcode = /^\d{8,14}$/.test(barcodeRaw) ? barcodeRaw : null;
   const allergens = Array.isArray(data.allergens)
     ? data.allergens
         .filter((a): a is string => typeof a === "string")
@@ -168,6 +173,7 @@ export function parseAnalysis(text: string): LabelAnalysis {
   return {
     legible: data.legible !== false && ingredients.length > 0,
     product_name: productName,
+    barcode,
     ingredients,
     allergens,
   };

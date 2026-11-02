@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { analyzeLabel } from "@/lib/analyze";
 import { getMedia } from "@/lib/storage";
-import { bandFor, normalizeName, overallScore } from "@/lib/scoring";
+import { applyCaps, bandFor, normalizeName, overallScore } from "@/lib/scoring";
+import { blendScores, externalScore, lookupProduct } from "@/lib/openfoodfacts";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -83,7 +84,17 @@ async function handle(id: string) {
       };
     });
 
-    const overall = overallScore(rows.map((r) => ({ name: r.raw_name, score: r.score })));
+    const items = rows.map((r) => ({ name: r.raw_name, score: r.score }));
+    const labelScore = overallScore(items);
+
+    // Cross-check with Open Food Facts (Nutri-Score, NOVA, Green-Score). Never blocks the scan.
+    const off = await lookupProduct({
+      name: analysis.product_name,
+      barcode: analysis.barcode,
+      ingredients: analysis.ingredients.map((i) => i.canonical_name),
+    });
+    const external = off ? externalScore(off) : null;
+    const overall = applyCaps(blendScores(labelScore, external), items);
 
     // A retry after a failed run must not collide with earlier rows.
     await db.from("scan_ingredients").delete().eq("scan_id", id);
@@ -95,6 +106,10 @@ async function handle(id: string) {
       .update({
         product_name: analysis.product_name,
         overall_score: overall,
+        label_score: labelScore,
+        external_score: external,
+        off_code: off?.code ?? null,
+        off_data: off,
         allergens: analysis.allergens,
         status: "analyzed",
       })

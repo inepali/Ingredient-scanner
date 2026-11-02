@@ -2,7 +2,7 @@ import { supabase } from "@/lib/supabase";
 import { createCopy, mergeHashtags } from "@/lib/copy";
 import { latestVideo } from "@/lib/queries";
 import { HttpError, handler, json, paramId } from "@/lib/http";
-import { parseScript } from "@/lib/script";
+import { offFactsLine, parseScript } from "@/lib/script";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -14,7 +14,7 @@ export const POST = handler(async (_req, ctx) => {
 
   const { data: scan } = await db
     .from("scans")
-    .select("id, product_name, status, overall_score")
+    .select("id, product_name, status, overall_score, off_data")
     .eq("id", id)
     .maybeSingle();
   if (!scan) throw new HttpError("Scan not found.", 404);
@@ -49,6 +49,7 @@ export const POST = handler(async (_req, ctx) => {
     productName: scan.product_name,
     overall: scan.overall_score,
     scriptTitle,
+    offFacts: offFactsLine(scan.off_data),
     ingredients: (ings ?? []).map((i) => ({ name: i.raw_name as string, score: (i.score as number | null) ?? 50 })),
   });
   result.tiktok.hashtags = mergeHashtags(result.tiktok.hashtags, curated);

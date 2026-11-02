@@ -43,8 +43,12 @@ export function overallScore(items: ScoredItem[]): number {
     weighted += item.score * w;
     weights += w;
   });
-  let overall = Math.round(weighted / weights);
+  return applyCaps(Math.round(weighted / weights), items);
+}
 
+/** The safety caps, reusable after the score is blended with outside data. */
+export function applyCaps(score: number, items: ScoredItem[]): number {
+  let overall = score;
   if (items.some((it) => it.score < 20)) overall = Math.min(overall, 60);
   if (items.some((it) => /partially hydrogenated/.test(it.name.toLowerCase()))) {
     overall = Math.min(overall, 30);
