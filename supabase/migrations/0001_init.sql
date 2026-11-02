@@ -1,5 +1,5 @@
--- Ingredient Scanner: initial schema (single-user tool, no auth / RLS).
--- Access is server-side only via the service role key.
+-- Ingredient Scanner: initial schema (single-user tool, no auth).
+-- Access is server-side only via the service role key; 0003 turns on RLS.
 
 create extension if not exists "pgcrypto";
 
@@ -85,6 +85,7 @@ create table jobs (
 
 create index on scan_ingredients (scan_id, position);
 create index on jobs (scan_id, step);
-
--- Storage bucket for uploads and rendered output (create in the Supabase dashboard):
---   bucket name: media (private; the app uses signed URLs)
+create index on scan_media (scan_id);
+create index on videos (scan_id);
+create index on social_copy (scan_id);
+create index on scan_ingredients (reference_id);

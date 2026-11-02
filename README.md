@@ -8,7 +8,7 @@ the video and post it manually. No auth (single user).
 
 1. `npm install`
 2. Copy `.env.example` to `.env.local` and fill it in.
-3. Run `supabase/migrations/0001_init.sql`, then `0002_seed_reference_and_allergens.sql` in your Supabase SQL editor, and create a private storage bucket named `media`.
+3. Run `supabase/migrations/0001_init.sql`, `0002_seed_reference_and_allergens.sql` and `0003_lock_down_and_media_bucket.sql` in order in your Supabase SQL editor (0003 enables RLS and creates the private `media` bucket).
 4. `npm run dev`, open the app, and upload a label photo.
 5. `npm test` runs the scoring and parsing unit tests (plain Node, no install needed).
 
