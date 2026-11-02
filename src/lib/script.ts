@@ -1,4 +1,4 @@
-import { generateText } from "./llm";
+import { generateText } from "./llm.ts";
 
 // A ~60s vertical social video, split into scenes. Each scene carries a visual
 // prompt (for an image-to-video model such as fal.ai) and its voiceover line.
@@ -61,4 +61,13 @@ export function parseScript(text: string): VideoScript {
 
 export async function createScript(input: ScriptInput): Promise<VideoScript> {
   return parseScript(await generateText(buildPrompt(input)));
+}
+
+/** The full spoken narration: every scene's voiceover line, in order. */
+export function narration(script: VideoScript): string {
+  return script.scenes
+    .map((s) => s.voiceover.trim())
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ");
 }

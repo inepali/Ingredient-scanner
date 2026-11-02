@@ -58,3 +58,17 @@ export async function getMedia(bucket: MediaBucket, key: string): Promise<Buffer
 export async function deleteMedia(bucket: MediaBucket, key: string) {
   await client().send(new DeleteObjectCommand({ Bucket: bucketName(bucket), Key: key }));
 }
+
+/** Signed URLs for many objects at once, keyed by object key. */
+export async function mediaUrls(
+  items: { bucket: MediaBucket; key: string }[],
+  expiresInSeconds = 3600,
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  await Promise.all(
+    items.map(async ({ bucket, key }) => {
+      if (!map.has(key)) map.set(key, await mediaUrl(bucket, key, expiresInSeconds));
+    }),
+  );
+  return map;
+}

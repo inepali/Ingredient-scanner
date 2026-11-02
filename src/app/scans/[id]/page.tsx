@@ -4,6 +4,10 @@ import { supabase } from "@/lib/supabase";
 import { bandFor, type Band } from "@/lib/scoring";
 import { parseScript, type VideoScript } from "@/lib/script";
 import ScriptSection from "@/components/ScriptSection";
+import { isMock } from "@/lib/mock";
+import { mediaUrls, type MediaBucket } from "@/lib/storage";
+import type { CopyRow, JobRow, MediaRow } from "@/lib/db-types";
+import VideoStudio, { type StudioCopy, type StudioMedia } from "@/components/VideoStudio";
 
 export const dynamic = "force-dynamic";
 
@@ -72,7 +76,7 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
 
   const { data: video } = await db
     .from("videos")
-    .select("script")
+    .select("script, audio_path, duration_s")
     .eq("scan_id", id)
     .not("script", "is", null)
     .order("version", { ascending: false })
@@ -86,6 +90,53 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
       // unreadable stored script; show the button instead
     }
   }
+
+  // Data for the voice / clips / post copy studio below the script.
+  const { data: mediaData } = await db
+    .from("scan_media")
+    .select("id, kind, storage_path, sort_order, source_media_id")
+    .eq("scan_id", id)
+    .in("kind", ["product_image", "clip"])
+    .order("sort_order");
+  const mediaRows = (mediaData ?? []) as Pick<
+    MediaRow,
+    "id" | "kind" | "storage_path" | "sort_order" | "source_media_id"
+  >[];
+  const { data: copyData } = await db
+    .from("social_copy")
+    .select("platform, title, description, hashtags")
+    .eq("scan_id", id);
+  const { data: jobData } = await db
+    .from("jobs")
+    .select("id, input")
+    .eq("scan_id", id)
+    .eq("step", "i2v")
+    .eq("status", "running");
+
+  // Photos live in the images bucket; clips and the voiceover in the videos bucket.
+  const bucketFor = (kind: string): MediaBucket => (kind === "clip" ? "videos" : "images");
+  const urls = await mediaUrls([
+    ...mediaRows.map((m) => ({ bucket: bucketFor(m.kind), key: m.storage_path })),
+    ...(video?.audio_path ? [{ bucket: "videos" as const, key: video.audio_path as string }] : []),
+  ]);
+  const studioMedia: StudioMedia[] = mediaRows.map((m) => ({
+    id: m.id,
+    kind: m.kind as "product_image" | "clip",
+    url: urls.get(m.storage_path) ?? "",
+    source_media_id: m.source_media_id,
+    is_video: m.storage_path.endsWith(".mp4"),
+  }));
+  const studioCopy: StudioCopy[] = ((copyData ?? []) as CopyRow[]).map((c) => ({
+    platform: c.platform,
+    title: c.title ?? "",
+    description: c.description ?? "",
+    hashtags: c.hashtags ?? [],
+  }));
+  const pendingJobs = ((jobData ?? []) as Pick<JobRow, "id" | "input">[]).map((j) => ({
+    id: j.id,
+    media_id: j.input?.media_id ?? null,
+  }));
+  const defaultResolution = process.env.WAN_RESOLUTION === "720p" ? "720p" : "480p";
 
   const overall: number = scan.overall_score;
   const overallBand = bandFor(overall);
@@ -166,6 +217,21 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
       </section>
 
       <ScriptSection scanId={id} initial={latestScript} />
+
+      {latestScript && (
+        <VideoStudio
+          scanId={id}
+          media={studioMedia}
+          hasScript
+          audioUrl={video?.audio_path ? (urls.get(video.audio_path as string) ?? null) : null}
+          audioSeconds={video?.duration_s ?? null}
+          copy={studioCopy}
+          pendingJobs={pendingJobs}
+          maxClips={Number(process.env.MAX_CLIPS ?? 4)}
+          defaultResolution={defaultResolution}
+          mock={isMock()}
+        />
+      )}
 
       <p className="text-xs text-neutral-400">
         Scores are a general nutrition rubric, not medical advice.
