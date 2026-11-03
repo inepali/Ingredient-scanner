@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { bandFor, type Band } from "@/lib/scoring";
 import type { OffSummary } from "@/lib/openfoodfacts";
 import { parseScript, type VideoScript } from "@/lib/script";
+import ProductName from "@/components/ProductName";
 import ScriptSection from "@/components/ScriptSection";
 import { isMock } from "@/lib/mock";
 import { mediaUrl, mediaUrls, type MediaBucket } from "@/lib/storage";
@@ -312,7 +313,7 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
           </text>
         </svg>
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">{scan.product_name ?? "Scanned product"}</h1>
+          <ProductName scanId={id} initial={scan.product_name} />
           <p className="text-neutral-600">
             Overall: <strong>{BAND_LABEL[overallBand]}</strong> ({overall}/100)
           </p>

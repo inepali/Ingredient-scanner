@@ -104,7 +104,8 @@ async function handle(id: string) {
     await db
       .from("scans")
       .update({
-        product_name: analysis.product_name,
+        // Don't wipe a name you typed in when a re-run can't read one from the label.
+        ...(analysis.product_name ? { product_name: analysis.product_name } : {}),
         overall_score: overall,
         label_score: labelScore,
         external_score: external,
