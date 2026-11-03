@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { CLIP_SECONDS, PRICE_PER_SECOND, estimateCostUsd, type Resolution } from "@/lib/pricing";
 
@@ -20,6 +20,9 @@ export type StudioCopy = {
 };
 
 export type StudioProps = {
+  /** Server-rendered panels for the first two tabs. */
+  ingredients: ReactNode;
+  scriptPanel: ReactNode;
   scanId: string;
   media: StudioMedia[];
   hasScript: boolean;
@@ -61,13 +64,56 @@ function postJson<T>(url: string, body: unknown, method = "POST"): Promise<T> {
   });
 }
 
+type TabId = "ingredients" | "script" | "voice" | "animation" | "video" | "copy";
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: "ingredients", label: "Ingredients" },
+  { id: "script", label: "Script" },
+  { id: "voice", label: "Voice" },
+  { id: "animation", label: "Animation" },
+  { id: "video", label: "Final Video" },
+  { id: "copy", label: "Copy" },
+];
+
 const btn =
   "rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40";
 const card = "space-y-3 rounded-xl border bg-white p-4";
 
-export default function VideoStudio(props: StudioProps) {
-  const { scanId, media, hasScript, audioUrl, audioSeconds, copy, pendingJobs, maxClips, mock, videoUrl, downloadUrl, renderJobId, renderError, renderStartedAt } = props;
+export default function ScanWorkspace(props: StudioProps) {
+  const { ingredients, scriptPanel, scanId, media, hasScript, audioUrl, audioSeconds, copy, pendingJobs, maxClips, mock, videoUrl, downloadUrl, renderJobId, renderError, renderStartedAt } = props;
   const router = useRouter();
+
+  const [tab, setTab] = useState<TabId>("ingredients");
+  const tabRefs = useRef<Partial<Record<TabId, HTMLButtonElement | null>>>({});
+
+  // Open the tab named in the URL (#voice) after load, so a reload keeps your place.
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (TABS.some((t) => t.id === id)) setTab(id as TabId);
+  }, []);
+
+  function selectTab(id: TabId, focus = false) {
+    setTab(id);
+    try {
+      window.history.replaceState(null, "", `#${id}`);
+    } catch {
+      // not critical
+    }
+    if (focus) tabRefs.current[id]?.focus();
+  }
+
+  function onTabKey(e: KeyboardEvent, index: number) {
+    const last = TABS.length - 1;
+    const target =
+      e.key === "ArrowRight" ? (index + 1) % TABS.length
+      : e.key === "ArrowLeft" ? (index - 1 + TABS.length) % TABS.length
+      : e.key === "Home" ? 0
+      : e.key === "End" ? last
+      : null;
+    if (target === null) return;
+    e.preventDefault();
+    selectTab(TABS[target].id, true);
+  }
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -154,10 +200,17 @@ export default function VideoStudio(props: StudioProps) {
   const clock = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`;
   const percent = progress?.percent ?? 0;
 
+  const tabStatus: Record<TabId, "done" | "busy" | null> = {
+    ingredients: null,
+    script: hasScript ? "done" : null,
+    voice: audioUrl ? "done" : null,
+    animation: pendingJobs.length > 0 ? "busy" : clips.length > 0 ? "done" : null,
+    video: renderJobId !== null ? "busy" : videoUrl ? "done" : null,
+    copy: copy.length > 0 ? "done" : null,
+  };
+
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-medium">Make the video</h2>
-
       {mock && (
         <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
           Mock mode is on: voice is silent and clips reuse your photos. Nothing paid is called.
@@ -166,8 +219,50 @@ export default function VideoStudio(props: StudioProps) {
       {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       {notice && <p className="rounded-md bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
 
+      <div role="tablist" aria-label="Scan steps" className="-mx-1 flex gap-1 overflow-x-auto border-b px-1">
+        {TABS.map((t, i) => {
+          const active = tab === t.id;
+          const st = tabStatus[t.id];
+          return (
+            <button
+              key={t.id}
+              ref={(el) => {
+                tabRefs.current[t.id] = el;
+              }}
+              role="tab"
+              id={`tab-${t.id}`}
+              aria-selected={active}
+              aria-controls={`panel-${t.id}`}
+              tabIndex={active ? 0 : -1}
+              onClick={() => selectTab(t.id)}
+              onKeyDown={(e) => onTabKey(e, i)}
+              className={`-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm ${
+                active ? "border-neutral-900 font-medium text-neutral-900" : "border-transparent text-neutral-500 hover:text-neutral-800"
+              }`}
+            >
+              {t.label}
+              {st === "done" && (
+                <span className="text-green-600" aria-label="done">
+                  ✓
+                </span>
+              )}
+              {st === "busy" && (
+                <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" aria-label="in progress" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <div role="tabpanel" id="panel-ingredients" aria-labelledby="tab-ingredients" hidden={tab !== "ingredients"} className="space-y-4 pt-4">
+        {ingredients}
+      </div>
+      <div role="tabpanel" id="panel-script" aria-labelledby="tab-script" hidden={tab !== "script"} className="space-y-4 pt-4">
+        {scriptPanel}
+      </div>
+      <div role="tabpanel" id="panel-voice" aria-labelledby="tab-voice" hidden={tab !== "voice"} className="space-y-4 pt-4">
       <section className={card}>
-        <h3 className="font-medium">1. AI voice</h3>
+        <h3 className="font-medium">AI voice</h3>
         {voices.length > 0 && (
           <label className="block space-y-1 text-sm">
             <span className="text-neutral-500">Voice</span>
@@ -203,7 +298,7 @@ export default function VideoStudio(props: StudioProps) {
         >
           {busy === "voice" ? "Generating voice…" : audioUrl ? "Regenerate voice" : "Generate voice"}
         </button>
-        {!hasScript && <p className="text-sm text-neutral-500">Create the video script above first.</p>}
+        {!hasScript && <p className="text-sm text-neutral-500">Create the script in the Script tab first.</p>}
         {audioUrl && (
           <>
             <audio controls src={audioUrl} className="w-full" />
@@ -214,8 +309,18 @@ export default function VideoStudio(props: StudioProps) {
         )}
       </section>
 
+
+      {audioUrl && (
+        <div className="flex justify-end">
+          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => selectTab("animation", true)}>
+            Next: Animation →
+          </button>
+        </div>
+      )}
+      </div>
+      <div role="tabpanel" id="panel-animation" aria-labelledby="tab-animation" hidden={tab !== "animation"} className="space-y-4 pt-4">
       <section className={card}>
-        <h3 className="font-medium">2. Animated clips (Wan 2.5)</h3>
+        <h3 className="font-medium">Animated clips (Wan 2.5)</h3>
         {photos.length === 0 ? (
           <p className="text-sm text-neutral-500">This scan has no product photos. Add them when you start a scan.</p>
         ) : (
@@ -280,8 +385,18 @@ export default function VideoStudio(props: StudioProps) {
           </>
         )}
       </section>
+
+      {clips.length > 0 && (
+        <div className="flex justify-end">
+          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => selectTab("video", true)}>
+            Next: Final Video →
+          </button>
+        </div>
+      )}
+      </div>
+      <div role="tabpanel" id="panel-video" aria-labelledby="tab-video" hidden={tab !== "video"} className="space-y-4 pt-4">
       <section className={card}>
-        <h3 className="font-medium">3. Final video (1080×1920, 9:16)</h3>
+        <h3 className="font-medium">Final video (1080×1920, 9:16)</h3>
         <p className="text-sm text-neutral-500">
           Puts your clips (or photos with a slow zoom), the voiceover and captions together. No AI video credits are
           used.
@@ -343,15 +458,25 @@ export default function VideoStudio(props: StudioProps) {
               </a>
             )}
             <p className="text-xs text-neutral-500">
-              Not happy? Change the script, voice or clips above and generate again. Source clips are{" "}
+              Not happy? Change the script, voice or clips in their tabs and generate again. Source clips are{" "}
               {props.defaultResolution}-quality video scaled up to 1080×1920.
             </p>
           </div>
         )}
       </section>
 
+
+      {videoUrl && (
+        <div className="flex justify-end">
+          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => selectTab("copy", true)}>
+            Next: Copy →
+          </button>
+        </div>
+      )}
+      </div>
+      <div role="tabpanel" id="panel-copy" aria-labelledby="tab-copy" hidden={tab !== "copy"} className="space-y-4 pt-4">
       <section className={card}>
-        <h3 className="font-medium">4. Social copy: title, description and tags</h3>
+        <h3 className="font-medium">Social copy: title, description and tags</h3>
         {!videoUrl ? (
           <p className="text-sm text-neutral-500">Generate and review the video first.</p>
         ) : (
@@ -441,6 +566,7 @@ export default function VideoStudio(props: StudioProps) {
           );
         })}
       </section>
+      </div>
     </div>
   );
 }

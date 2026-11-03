@@ -9,7 +9,7 @@ import { isMock } from "@/lib/mock";
 import { mediaUrl, mediaUrls, type MediaBucket } from "@/lib/storage";
 import { isRenderStale } from "@/lib/render";
 import type { CopyRow, JobRow, MediaRow } from "@/lib/db-types";
-import VideoStudio, { type StudioCopy, type StudioMedia } from "@/components/VideoStudio";
+import ScanWorkspace, { type StudioCopy, type StudioMedia } from "@/components/ScanWorkspace";
 
 export const dynamic = "force-dynamic";
 
@@ -173,53 +173,8 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
   const allergens: string[] = scan.allergens ?? [];
   const off = (scan.off_data ?? null) as OffSummary | null;
 
-  return (
-    <div className="space-y-8">
-      <div className="flex gap-4 text-sm text-neutral-500">
-        <Link href="/" className="underline">
-          ← New scan
-        </Link>
-        <Link href="/history" className="underline">
-          History
-        </Link>
-      </div>
-
-      <header className="flex items-center gap-6">
-        <svg viewBox="0 0 120 120" className="h-32 w-32 shrink-0 -rotate-90" role="img" aria-label={`Overall score ${overall} out of 100`}>
-          <circle cx="60" cy="60" r={R} fill="none" strokeWidth="10" className="stroke-neutral-200" />
-          <circle
-            cx="60"
-            cy="60"
-            r={R}
-            fill="none"
-            strokeWidth="10"
-            strokeLinecap="round"
-            strokeDasharray={C}
-            strokeDashoffset={C * (1 - overall / 100)}
-            className={BAND_STROKE[overallBand]}
-          />
-          <text
-            x="60"
-            y="60"
-            textAnchor="middle"
-            dominantBaseline="central"
-            className="rotate-90 fill-neutral-900 text-3xl font-semibold"
-            style={{ transformOrigin: "60px 60px" }}
-          >
-            {overall}
-          </text>
-        </svg>
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">{scan.product_name ?? "Scanned product"}</h1>
-          <p className="text-neutral-600">
-            Overall: <strong>{BAND_LABEL[overallBand]}</strong> ({overall}/100)
-          </p>
-          {allergens.length > 0 && (
-            <p className="text-sm text-neutral-500">Contains: {allergens.join(", ")}</p>
-          )}
-        </div>
-      </header>
-
+  const ingredientsPanel = (
+    <div className="space-y-6">
       {off && (
         <section className="space-y-2 rounded-xl border bg-white p-4 text-sm">
           <div className="flex flex-wrap items-center gap-2">
@@ -282,29 +237,76 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
           ))}
         </ol>
       </section>
+    </div>
+  );
 
-      <ScriptSection scanId={id} initial={latestScript} />
+  return (
+    <div className="space-y-8">
+      <div className="flex gap-4 text-sm text-neutral-500">
+        <Link href="/" className="underline">
+          ← New scan
+        </Link>
+        <Link href="/history" className="underline">
+          History
+        </Link>
+      </div>
 
-      {latestScript && (
-        <VideoStudio
-          scanId={id}
-          media={studioMedia}
-          hasScript
-          audioUrl={video?.audio_path ? (urls.get(video.audio_path as string) ?? null) : null}
-          audioSeconds={video?.duration_s ?? null}
-          videoUrl={videoUrl}
-          downloadUrl={downloadUrl}
-          renderJobId={(activeRender?.id as string | undefined) ?? null}
-          renderError={renderError}
-          renderStartedAt={(activeRender?.created_at as string | undefined) ?? null}
-          renderProgress={(activeRender?.output as { stage?: string; percent?: number } | null | undefined) ?? null}
-          copy={studioCopy}
-          pendingJobs={pendingJobs}
-          maxClips={Number(process.env.MAX_CLIPS ?? 4)}
-          defaultResolution={defaultResolution}
-          mock={isMock()}
-        />
-      )}
+      <header className="flex items-center gap-6">
+        <svg viewBox="0 0 120 120" className="h-32 w-32 shrink-0 -rotate-90" role="img" aria-label={`Overall score ${overall} out of 100`}>
+          <circle cx="60" cy="60" r={R} fill="none" strokeWidth="10" className="stroke-neutral-200" />
+          <circle
+            cx="60"
+            cy="60"
+            r={R}
+            fill="none"
+            strokeWidth="10"
+            strokeLinecap="round"
+            strokeDasharray={C}
+            strokeDashoffset={C * (1 - overall / 100)}
+            className={BAND_STROKE[overallBand]}
+          />
+          <text
+            x="60"
+            y="60"
+            textAnchor="middle"
+            dominantBaseline="central"
+            className="rotate-90 fill-neutral-900 text-3xl font-semibold"
+            style={{ transformOrigin: "60px 60px" }}
+          >
+            {overall}
+          </text>
+        </svg>
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold">{scan.product_name ?? "Scanned product"}</h1>
+          <p className="text-neutral-600">
+            Overall: <strong>{BAND_LABEL[overallBand]}</strong> ({overall}/100)
+          </p>
+          {allergens.length > 0 && (
+            <p className="text-sm text-neutral-500">Contains: {allergens.join(", ")}</p>
+          )}
+        </div>
+      </header>
+
+      <ScanWorkspace
+        ingredients={ingredientsPanel}
+        scriptPanel={<ScriptSection scanId={id} initial={latestScript} />}
+        scanId={id}
+        media={studioMedia}
+        hasScript={latestScript !== null}
+        audioUrl={video?.audio_path ? (urls.get(video.audio_path as string) ?? null) : null}
+        audioSeconds={video?.duration_s ?? null}
+        videoUrl={videoUrl}
+        downloadUrl={downloadUrl}
+        renderJobId={(activeRender?.id as string | undefined) ?? null}
+        renderError={renderError}
+        renderStartedAt={(activeRender?.created_at as string | undefined) ?? null}
+        renderProgress={(activeRender?.output as { stage?: string; percent?: number } | null | undefined) ?? null}
+        copy={studioCopy}
+        pendingJobs={pendingJobs}
+        maxClips={Number(process.env.MAX_CLIPS ?? 4)}
+        defaultResolution={defaultResolution}
+        mock={isMock()}
+      />
 
       <p className="text-xs text-neutral-400">
         Scores are a general nutrition rubric, not medical advice.
