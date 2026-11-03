@@ -183,3 +183,23 @@ test("parseScript keeps valid sections; parseTone falls back", () => {
   assert.equal(parseTone("shouting"), "friendly");
   assert.equal(parseTone(undefined), "friendly");
 });
+
+import { speechBody } from "./elevenlabs.ts";
+import { DELIVERIES, parseDelivery } from "./delivery.ts";
+
+test("speechBody sends the chosen delivery as ElevenLabs voice settings", () => {
+  const natural = speechBody("Hi", "natural", "eleven_multilingual_v2");
+  assert.equal(natural.text, "Hi");
+  assert.equal(natural.model_id, "eleven_multilingual_v2");
+  assert.deepEqual(natural.voice_settings, DELIVERIES.natural.settings);
+  const expressive = speechBody("Hi", "expressive");
+  assert.ok(expressive.voice_settings.style > natural.voice_settings.style);
+  assert.ok(expressive.voice_settings.stability < natural.voice_settings.stability);
+  assert.ok(DELIVERIES.steady.settings.stability > natural.voice_settings.stability);
+});
+
+test("parseDelivery falls back to natural", () => {
+  assert.equal(parseDelivery("steady"), "steady");
+  assert.equal(parseDelivery("loud"), "natural");
+  assert.equal(parseDelivery(null), "natural");
+});

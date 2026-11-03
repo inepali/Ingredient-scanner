@@ -5,7 +5,7 @@ import type { VideoRow } from "./db-types";
 export async function latestVideo(db: SupabaseClient, scanId: string): Promise<VideoRow | null> {
   const { data, error } = await db
     .from("videos")
-    .select("id, scan_id, script, voice_id, audio_path, video_path, duration_s, words, version")
+    .select("id, scan_id, script, voice_id, audio_path, voiceover_id, video_path, duration_s, words, version")
     .eq("scan_id", scanId)
     .order("created_at", { ascending: false })
     .limit(1)

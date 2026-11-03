@@ -29,6 +29,9 @@ Spec: see the MVP spec doc in the Claude project.
 ## Open Food Facts cross-check
 After the label is read, the scan is looked up on Open Food Facts (by barcode if one is printed, otherwise by name, accepted only when the ingredient list matches well). Nutri-Score (50%), NOVA (35%) and Green-Score (15%) become an outside score that makes up 40% of the overall score. The report shows both scores, the grades, palm oil, additives and per-100 g nutrients. No key needed. Needs migration `0005_open_food_facts.sql`.
 
+## Voice takes
+Every voiceover you generate is kept as a "take" in the R2 videos bucket (`scans/<scan>/voiceovers/`), listed on the Voice tab with a player, Download and Delete. The newest take is selected automatically; press "Use this one" on another to switch (this clears the final video so you can render it again). Generate takes with different voices and Delivery (Natural, Expressive, Steady) to compare. A take is tied to the script it was made for, so after you rewrite the script, older takes are marked "Earlier script" and can't be selected. Needs migration `0006_voiceovers.sql` (also brings existing audio into the list).
+
 ## Final video
 "Generate video" renders a 1080x1920 (9:16) H.264 MP4 with ffmpeg: clips (or photos with a slow zoom) change with the narration, bold captions are timed to the voice, and a score badge sits at the top. It uses no AI credits. A 60 s video takes about 30 s to render on 2 cores.
 - The page shows the stage, a percent bar and elapsed time, with a Cancel button. A render that goes quiet for 3 minutes is marked failed.

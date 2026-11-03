@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { DEFAULT_DELIVERY, DELIVERIES, type Delivery } from "@/lib/delivery";
 import { CLIP_SECONDS, PRICE_PER_SECOND, estimateCostUsd, type Resolution } from "@/lib/pricing";
 
 export type StudioMedia = {
@@ -10,6 +11,21 @@ export type StudioMedia = {
   url: string;
   source_media_id: string | null;
   is_video: boolean;
+};
+
+export type VoiceTake = {
+  id: string;
+  number: number;
+  voiceName: string;
+  delivery: string | null;
+  seconds: number | null;
+  createdAt: string;
+  url: string;
+  downloadUrl: string;
+  selected: boolean;
+  /** Made for the current script (takes for an older script can't be used). */
+  usable: boolean;
+  mock: boolean;
 };
 
 export type StudioCopy = {
@@ -28,6 +44,7 @@ export type StudioProps = {
   hasScript: boolean;
   audioUrl: string | null;
   audioSeconds: number | null;
+  voiceTakes: VoiceTake[];
   videoUrl: string | null;
   downloadUrl: string | null;
   renderJobId: string | null;
@@ -80,7 +97,7 @@ const btn =
 const card = "space-y-3 rounded-xl border bg-white p-4";
 
 export default function ScanWorkspace(props: StudioProps) {
-  const { ingredients, scriptPanel, scanId, media, hasScript, audioUrl, audioSeconds, copy, pendingJobs, maxClips, mock, videoUrl, downloadUrl, renderJobId, renderError, renderStartedAt } = props;
+  const { ingredients, scriptPanel, scanId, media, hasScript, audioUrl, voiceTakes, copy, pendingJobs, maxClips, mock, videoUrl, downloadUrl, renderJobId, renderError, renderStartedAt } = props;
   const router = useRouter();
 
   const [tab, setTab] = useState<TabId>("ingredients");
@@ -121,6 +138,8 @@ export default function ScanWorkspace(props: StudioProps) {
   const [voices, setVoices] = useState<{ id: string; name: string; free: boolean; description: string | null }[]>([]);
   const [voiceId, setVoiceId] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [delivery, setDelivery] = useState<Delivery>(DEFAULT_DELIVERY);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ stage?: string; percent?: number } | null>(props.renderProgress);
   const [now, setNow] = useState(() => Date.now());
   const [drafts, setDrafts] = useState<Record<string, { title: string; description: string; tags: string }>>({});
@@ -262,26 +281,51 @@ export default function ScanWorkspace(props: StudioProps) {
       </div>
       <div role="tabpanel" id="panel-voice" aria-labelledby="tab-voice" hidden={tab !== "voice"} className="space-y-4 pt-4">
       <section className={card}>
-        <h3 className="font-medium">AI voice</h3>
-        {voices.length > 0 && (
+        <h3 className="font-medium">{voiceTakes.length > 0 ? "Generate another take" : "AI voice"}</h3>
+        <p className="text-sm text-neutral-500">
+          Every take is saved, so you can try different voices or delivery and pick the one the video uses.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {voices.length > 0 && (
+            <label className="block space-y-1 text-sm">
+              <span className="text-neutral-500">Voice</span>
+              <select
+                value={voiceId}
+                onChange={(e) => setVoiceId(e.target.value)}
+                disabled={busy !== null}
+                className="w-full rounded-md border px-2 py-2"
+              >
+                {voices.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                    {v.description ? ` · ${v.description}` : ""}
+                    {v.free ? "" : " (paid plan only)"}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="block space-y-1 text-sm">
-            <span className="text-neutral-500">Voice</span>
+            <span className="text-neutral-500">Delivery</span>
             <select
-              value={voiceId}
-              onChange={(e) => setVoiceId(e.target.value)}
+              value={delivery}
+              onChange={(e) => setDelivery(e.target.value as Delivery)}
               disabled={busy !== null}
               className="w-full rounded-md border px-2 py-2"
             >
-              {voices.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name}
-                  {v.description ? ` · ${v.description}` : ""}
-                  {v.free ? "" : " (paid plan only)"}
+              {(Object.keys(DELIVERIES) as Delivery[]).map((d) => (
+                <option key={d} value={d}>
+                  {DELIVERIES[d].label}
                 </option>
               ))}
             </select>
           </label>
-        )}
+        </div>
+        <p className="text-xs text-neutral-500">
+          {delivery === "natural" && "Natural: balanced and conversational."}
+          {delivery === "expressive" && "Expressive: more emotion and emphasis; can sound dramatic."}
+          {delivery === "steady" && "Steady: even and calm, with less variation."}
+        </p>
         {voiceError && <p className="text-xs text-amber-700">{voiceError}</p>}
         <button
           className={btn}
@@ -290,25 +334,106 @@ export default function ScanWorkspace(props: StudioProps) {
             run("voice", async () => {
               const r = await postJson<{ characters: number; warning: string | null; mock: boolean }>(
                 `/api/scans/${scanId}/voice`,
-                voiceId ? { voice_id: voiceId } : {},
+                {
+                  ...(voiceId ? { voice_id: voiceId, voice_name: voices.find((v) => v.id === voiceId)?.name } : {}),
+                  delivery,
+                },
               );
-              return r.warning ?? `Voiceover ready (${r.characters} characters${r.mock ? ", mock" : ""}).`;
+              return r.warning ?? `New take saved and selected (${r.characters} characters${r.mock ? ", mock" : ""}).`;
             })
           }
         >
-          {busy === "voice" ? "Generating voice…" : audioUrl ? "Regenerate voice" : "Generate voice"}
+          {busy === "voice" ? "Generating voice…" : voiceTakes.length > 0 ? "Generate new take" : "Generate voice"}
         </button>
         {!hasScript && <p className="text-sm text-neutral-500">Create the script in the Script tab first.</p>}
-        {audioUrl && (
-          <>
-            <audio controls src={audioUrl} className="w-full" />
-            {audioSeconds !== null && (
-              <p className="text-xs text-neutral-500">{audioSeconds.toFixed(1)} seconds</p>
-            )}
-          </>
-        )}
       </section>
 
+      {voiceTakes.length > 0 && (
+        <section className={card}>
+          <h3 className="font-medium">Your voice takes ({voiceTakes.length})</h3>
+          <ul className="space-y-3">
+            {voiceTakes.map((t) => (
+              <li
+                key={t.id}
+                className={`space-y-2 rounded-lg border p-3 text-sm ${t.selected ? "border-neutral-900 bg-neutral-50" : "bg-white"}`}
+              >
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <strong>Take {t.number}</strong>
+                  <span className="text-neutral-600">
+                    {t.voiceName}
+                    {t.delivery && t.delivery in DELIVERIES ? ` · ${DELIVERIES[t.delivery as Delivery].label}` : ""}
+                  </span>
+                  {t.seconds !== null && <span className="text-neutral-500">{Math.round(t.seconds)}s</span>}
+                  {t.selected && (
+                    <span className="rounded-full bg-neutral-900 px-2 py-0.5 text-xs font-medium text-white">In use</span>
+                  )}
+                  {!t.usable && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                      Earlier script
+                    </span>
+                  )}
+                  {t.mock && <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs">Mock</span>}
+                </div>
+                <audio controls preload="none" src={t.url} className="w-full" />
+                <div className="flex flex-wrap items-center gap-2">
+                  {!t.selected && (
+                    <button
+                      className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+                      disabled={busy !== null || !t.usable}
+                      title={t.usable ? undefined : "Made for an earlier script; it doesn't match the current one"}
+                      onClick={() =>
+                        run(`use-${t.id}`, async () => {
+                          await call(`/api/voiceovers/${t.id}/select`, { method: "POST" });
+                          return videoUrl
+                            ? `Now using Take ${t.number}. The final video was cleared; generate it again to apply this voice.`
+                            : `Now using Take ${t.number} for the video.`;
+                        })
+                      }
+                    >
+                      Use this one
+                    </button>
+                  )}
+                  <a href={t.downloadUrl} className="rounded-md border px-3 py-1.5 text-sm">
+                    Download
+                  </a>
+                  {!t.selected &&
+                    (confirmDelete === t.id ? (
+                      <>
+                        <button
+                          className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+                          disabled={busy !== null}
+                          onClick={() =>
+                            run(`del-${t.id}`, async () => {
+                              setConfirmDelete(null);
+                              await call(`/api/voiceovers/${t.id}`, { method: "DELETE" });
+                              return `Take ${t.number} deleted.`;
+                            })
+                          }
+                        >
+                          Delete for good
+                        </button>
+                        <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => setConfirmDelete(null)}>
+                          Keep
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="rounded-md border px-3 py-1.5 text-sm text-red-700"
+                        disabled={busy !== null}
+                        onClick={() => setConfirmDelete(t.id)}
+                      >
+                        Delete
+                      </button>
+                    ))}
+                  <span className="ml-auto text-xs text-neutral-400" suppressHydrationWarning>
+                    {new Date(t.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {audioUrl && (
         <div className="flex justify-end">

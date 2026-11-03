@@ -5,15 +5,19 @@ import { isMock } from "@/lib/mock";
 import { latestVideo } from "@/lib/queries";
 import { mediaUrl, putMedia } from "@/lib/storage";
 import { narration, parseScript } from "@/lib/script";
+import { parseDelivery } from "@/lib/delivery";
 import { HttpError, handler, json, paramId } from "@/lib/http";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// Turns the saved script into a voiceover with ElevenLabs (or a silent mock).
+// Turns the saved script into a new voiceover "take" with ElevenLabs (or a silent mock).
+// Every take is kept in R2; the new one becomes the one the video uses.
 export const POST = handler(async (req, ctx) => {
   const id = await paramId(ctx);
-  const body = (await req.json().catch(() => ({}))) as { voice_id?: string };
+  const body = (await req.json().catch(() => ({}))) as { voice_id?: string; voice_name?: string; delivery?: string };
+  const delivery = parseDelivery(body.delivery);
+  const voiceName = typeof body.voice_name === "string" ? body.voice_name.trim().slice(0, 60) || null : null;
 
   const db = supabase();
   const video = await latestVideo(db, id);
@@ -56,17 +60,36 @@ export const POST = handler(async (req, ctx) => {
     .single();
 
   try {
-    const speech = await synthesize(text, voiceId);
+    const speech = await synthesize(text, voiceId, delivery);
 
     const ext = speech.mock ? "wav" : "mp3";
-    const path = `scans/${id}/voiceover-${Date.now()}.${ext}`;
+    const takeId = crypto.randomUUID();
+    const path = `scans/${id}/voiceovers/${takeId}.${ext}`;
     await putMedia("videos", path, speech.audio, speech.mock ? "audio/wav" : "audio/mpeg");
 
     const words = wordsFromAlignment(speech.alignment);
+    const take = await db.from("voiceovers").insert({
+      id: takeId,
+      scan_id: id,
+      video_id: video.id,
+      voice_id: voiceId || null,
+      voice_name: voiceName,
+      delivery,
+      audio_path: path,
+      duration_s: speech.durationSeconds,
+      characters: text.length,
+      alignment: speech.alignment,
+      words,
+      mock: speech.mock,
+    });
+    if (take.error) throw new Error(`Saving the voice take failed: ${take.error.message}`);
+
+    // The new take becomes the one the video uses.
     const saved = await db
       .from("videos")
       .update({
         voice_id: voiceId || null,
+        voiceover_id: takeId,
         audio_path: path,
         video_path: null, // a new voiceover makes any earlier final video stale
         duration_s: speech.durationSeconds,
@@ -84,6 +107,7 @@ export const POST = handler(async (req, ctx) => {
     }
 
     return json({
+      voiceover_id: takeId,
       audio_url: await mediaUrl("videos", path),
       duration_s: speech.durationSeconds,
       characters: text.length,

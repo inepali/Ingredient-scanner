@@ -8,8 +8,8 @@ import ScriptSection from "@/components/ScriptSection";
 import { isMock } from "@/lib/mock";
 import { mediaUrl, mediaUrls, type MediaBucket } from "@/lib/storage";
 import { isRenderStale } from "@/lib/render";
-import type { CopyRow, JobRow, MediaRow } from "@/lib/db-types";
-import ScanWorkspace, { type StudioCopy, type StudioMedia } from "@/components/ScanWorkspace";
+import type { CopyRow, JobRow, MediaRow, VoiceoverRow } from "@/lib/db-types";
+import ScanWorkspace, { type StudioCopy, type StudioMedia, type VoiceTake } from "@/components/ScanWorkspace";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +87,7 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
 
   const { data: video } = await db
     .from("videos")
-    .select("script, audio_path, video_path, duration_s")
+    .select("id, script, audio_path, voiceover_id, video_path, duration_s")
     .eq("scan_id", id)
     .not("script", "is", null)
     .order("version", { ascending: false })
@@ -164,6 +164,35 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
   const downloadUrl = finalPath
     ? await mediaUrl("videos", finalPath, 3600, `${(scan.product_name ?? "ingredient-check").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.mp4`)
     : null;
+  // Every saved voice take, oldest first so "Take 1" stays Take 1.
+  const { data: takeData } = await db
+    .from("voiceovers")
+    .select("id, video_id, voice_name, delivery, audio_path, duration_s, mock, created_at")
+    .eq("scan_id", id)
+    .order("created_at", { ascending: true });
+  const safeName = (scan.product_name ?? "ingredient-check").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+  const voiceTakes: VoiceTake[] = (
+    await Promise.all(
+      ((takeData ?? []) as VoiceoverRow[]).map(async (t, i) => ({
+        id: t.id,
+        number: i + 1,
+        voiceName: t.voice_name ?? "Voice",
+        delivery: t.delivery,
+        seconds: t.duration_s === null ? null : Number(t.duration_s),
+        createdAt: t.created_at,
+        url: await mediaUrl("videos", t.audio_path),
+        downloadUrl: await mediaUrl(
+          "videos",
+          t.audio_path,
+          3600,
+          `${safeName}-take-${i + 1}.${t.audio_path.endsWith(".wav") ? "wav" : "mp3"}`,
+        ),
+        selected: t.id === video?.voiceover_id,
+        usable: t.video_id === video?.id,
+        mock: t.mock,
+      })),
+    )
+  ).reverse(); // newest first on screen
   const defaultResolution = process.env.WAN_RESOLUTION === "720p" ? "720p" : "480p";
 
   const overall: number = scan.overall_score;
@@ -295,6 +324,7 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
         hasScript={latestScript !== null}
         audioUrl={video?.audio_path ? (urls.get(video.audio_path as string) ?? null) : null}
         audioSeconds={video?.duration_s ?? null}
+        voiceTakes={voiceTakes}
         videoUrl={videoUrl}
         downloadUrl={downloadUrl}
         renderJobId={(activeRender?.id as string | undefined) ?? null}

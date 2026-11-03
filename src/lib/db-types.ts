@@ -18,6 +18,7 @@ export type VideoRow = {
   script: string | null;
   voice_id: string | null;
   audio_path: string | null;
+  voiceover_id: string | null;
   video_path: string | null;
   duration_s: number | null;
   words: { text: string; start: number; end: number }[] | null;
@@ -44,4 +45,18 @@ export type CopyRow = {
   title: string | null;
   description: string | null;
   hashtags: string[] | null;
+};
+
+export type VoiceoverRow = {
+  id: string;
+  scan_id: string;
+  video_id: string;
+  voice_id: string | null;
+  voice_name: string | null;
+  delivery: string | null;
+  audio_path: string;
+  duration_s: number | null;
+  characters: number | null;
+  mock: boolean;
+  created_at: string;
 };

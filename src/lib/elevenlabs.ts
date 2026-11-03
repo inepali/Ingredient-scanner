@@ -1,4 +1,5 @@
 import type { Alignment } from "./captions.ts";
+import { DELIVERIES, DEFAULT_DELIVERY, type Delivery } from "./delivery.ts";
 import { isMock, mockAlignment, silentWav, speechSeconds } from "./mock.ts";
 
 const MODEL = process.env.ELEVENLABS_MODEL ?? "eleven_multilingual_v2";
@@ -11,7 +12,12 @@ export type Speech = {
 };
 
 /** Text to speech with character timings (used later for captions). */
-export async function synthesize(text: string, voiceId: string): Promise<Speech> {
+/** The JSON body sent to ElevenLabs. Exported so it can be unit tested. */
+export function speechBody(text: string, delivery: Delivery = DEFAULT_DELIVERY, model = MODEL) {
+  return { text, model_id: model, voice_settings: DELIVERIES[delivery].settings };
+}
+
+export async function synthesize(text: string, voiceId: string, delivery: Delivery = DEFAULT_DELIVERY): Promise<Speech> {
   if (isMock()) {
     const seconds = speechSeconds(text);
     return {
@@ -30,7 +36,7 @@ export async function synthesize(text: string, voiceId: string): Promise<Speech>
     {
       method: "POST",
       headers: { "xi-api-key": key, "content-type": "application/json" },
-      body: JSON.stringify({ text, model_id: MODEL }),
+      body: JSON.stringify(speechBody(text, delivery)),
     },
   );
   if (!res.ok) {
