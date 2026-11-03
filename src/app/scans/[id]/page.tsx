@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { bandFor, type Band } from "@/lib/scoring";
 import type { OffSummary } from "@/lib/openfoodfacts";
 import { parseScript, type VideoScript } from "@/lib/script";
+import DeleteScanButton from "@/components/DeleteScanButton";
 import ScoreRing from "@/components/ScoreRing";
 import ProductName from "@/components/ProductName";
 import ScriptSection from "@/components/ScriptSection";
@@ -325,9 +326,10 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
         mock={isMock()}
       />
 
-      <p className="text-xs text-neutral-400">
-        Scores are a general nutrition rubric, not medical advice.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-neutral-400">Scores are a general nutrition rubric, not medical advice.</p>
+        <DeleteScanButton scanId={id} name={scan.product_name} after="history" />
+      </div>
     </div>
   );
 }

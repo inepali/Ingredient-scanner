@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { HttpError, handler, json, paramId } from "@/lib/http";
+import { deleteScan } from "@/lib/delete-scan";
 
 export const runtime = "nodejs";
 
@@ -28,4 +29,10 @@ export const PATCH = handler(async (req, ctx) => {
   if (error) throw new Error(error.message);
   if (!data) throw new HttpError("Scan not found.", 404);
   return json({ product_name: data.product_name });
+});
+
+// Deletes the scan, all its data and its stored photos, clips, voiceovers and videos.
+export const DELETE = handler(async (_req, ctx) => {
+  const id = await paramId(ctx);
+  return json({ ok: true, ...(await deleteScan(supabase(), id)) });
 });

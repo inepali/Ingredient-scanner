@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import DeleteScanButton from "@/components/DeleteScanButton";
 import { bandFor, type Band } from "@/lib/scoring";
 
 export const dynamic = "force-dynamic";
@@ -64,10 +65,10 @@ export default async function HistoryPage() {
           {scans.map((s) => {
             const band = bandFor(s.overall_score);
             return (
-              <li key={s.id}>
+              <li key={s.id} className="flex flex-wrap items-center gap-2">
                 <Link
                   href={`/scans/${s.id}`}
-                  className="flex items-center justify-between gap-4 rounded-lg border bg-white p-3 hover:bg-neutral-50"
+                  className="flex min-w-0 flex-1 items-center justify-between gap-4 rounded-lg border bg-white p-3 hover:bg-neutral-50"
                 >
                   <span className="min-w-0">
                     <span className="block truncate font-medium">{s.product_name ?? "Scanned product"}</span>
@@ -80,6 +81,7 @@ export default async function HistoryPage() {
                     {s.overall_score} · {BAND_LABEL[band]}
                   </span>
                 </Link>
+                <DeleteScanButton scanId={s.id} name={s.product_name} after="refresh" />
               </li>
             );
           })}
