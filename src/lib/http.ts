@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-export type Ctx = { params: Promise<{ id: string }> };
+// `id` is optional so the wrapper also fits routes without a dynamic segment (/api/voices).
+export type Ctx = { params: Promise<{ id?: string }> };
 
 export class HttpError extends Error {
   status: number;
@@ -19,7 +20,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** The [id] route param, validated as a UUID. */
 export async function paramId(ctx: Ctx): Promise<string> {
   const { id } = await ctx.params;
-  if (!UUID.test(id)) throw new HttpError("Not found.", 404);
+  if (!id || !UUID.test(id)) throw new HttpError("Not found.", 404);
   return id;
 }
 
