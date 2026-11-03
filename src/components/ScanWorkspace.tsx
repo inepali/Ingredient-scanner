@@ -200,10 +200,11 @@ export default function ScanWorkspace(props: StudioProps) {
   const [resolution, setResolution] = useState<"480p" | "720p">(props.defaultResolution);
 
   useEffect(() => {
-    call<{ voices: typeof voices; selected: string }>("/api/voices")
+    call<{ voices: typeof voices; selected: string; warning?: string }>("/api/voices")
       .then((r) => {
         setVoices(r.voices);
         setVoiceId(r.selected);
+        if (r.warning) setVoiceError(r.warning);
       })
       .catch((e) => setVoiceError(e instanceof Error ? e.message : "Could not load voices."));
   }, []);
@@ -357,6 +358,18 @@ export default function ScanWorkspace(props: StudioProps) {
                   </option>
                 ))}
               </select>
+            </label>
+          )}
+          {voices.length === 0 && (
+            <label className="block space-y-1 text-sm">
+              <span className="text-neutral-500">Voice ID</span>
+              <input
+                value={voiceId}
+                onChange={(e) => setVoiceId(e.target.value.trim())}
+                placeholder="e.g. from elevenlabs.io > Voices"
+                disabled={busy !== null}
+                className="w-full rounded-md border px-2 py-2"
+              />
             </label>
           )}
           <label className="block space-y-1 text-sm">

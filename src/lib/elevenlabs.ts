@@ -97,6 +97,14 @@ export function parseVoices(data: unknown): Voice[] {
   return voices.sort((a, b) => Number(b.free) - Number(a.free) || a.name.localeCompare(b.name));
 }
 
+export class VoicesPermissionError extends Error {
+  constructor() {
+    super(
+      "This ElevenLabs API key can't list voices (missing the voices_read permission). Paste a voice ID below, or enable Voices > Read on the key in ElevenLabs.",
+    );
+  }
+}
+
 /** Voices in your ElevenLabs account. */
 export async function listVoices(): Promise<Voice[]> {
   if (isMock()) {
@@ -105,6 +113,10 @@ export async function listVoices(): Promise<Voice[]> {
   const key = process.env.ELEVENLABS_API_KEY;
   if (!key) throw new Error("ELEVENLABS_API_KEY is not set");
   const res = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": key } });
-  if (!res.ok) throw new Error(`ElevenLabs ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) {
+    const text = await res.text();
+    if (res.status === 401 && text.includes("voices_read")) throw new VoicesPermissionError();
+    throw new Error(`ElevenLabs ${res.status}: ${text.slice(0, 200)}`);
+  }
   return parseVoices(await res.json());
 }
