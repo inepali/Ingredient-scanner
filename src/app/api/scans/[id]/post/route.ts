@@ -38,7 +38,11 @@ export const POST = handler(async (req, ctx) => {
 
   const { data: copy } = await db.from("social_copy").select("title, description, hashtags").eq("scan_id", id).eq("platform", platform).maybeSingle();
   if (!copy) throw new HttpError("Generate the social copy first.");
-  const caption = buildCaption({ title: copy.title ?? "", description: copy.description ?? "", hashtags: copy.hashtags ?? [] });
+  // A public report page gets linked from the caption.
+  const { data: scan } = await db.from("scans").select("is_public").eq("id", id).maybeSingle();
+  const link = scan?.is_public ? `\n\nFull ingredient breakdown: ${(process.env.APP_URL || new URL(req.url).origin).replace(/\/$/, "")}/p/${id}` : "";
+  const caption =
+    buildCaption({ title: copy.title ?? "", description: copy.description ?? "", hashtags: copy.hashtags ?? [] }, 2200 - link.length) + link;
 
   // One post per video per platform unless you explicitly post again.
   const { data: existing } = await db

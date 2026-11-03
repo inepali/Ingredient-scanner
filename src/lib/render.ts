@@ -34,6 +34,10 @@ export function parseProgressSeconds(chunk: string): number | null {
 export const WIDTH = 1080;
 export const HEIGHT = 1920;
 export const FPS = 30;
+/** Score ring overlay: size and distance from the top (clear of the app UI). */
+export const RING_SIZE = 300;
+export const RING_TOP = 150;
+export const RING_CENTER = { x: WIDTH / 2, y: RING_TOP + RING_SIZE / 2 };
 
 export type RenderSegment = { kind: "video" | "image"; file: string; duration: number };
 
@@ -43,6 +47,8 @@ export type RenderOptions = {
   assFile: string;
   fontsDir: string;
   outFile: string;
+  /** PNG of the score ring, overlaid top-centre for the whole video. */
+  ringFile?: string;
   total: number;
   preset?: string;
 };
@@ -80,9 +86,14 @@ export function buildFfmpegArgs(o: RenderOptions): string[] {
 
   args.push("-i", o.audioFile);
   const n = o.segments.length;
+  if (o.ringFile) args.push("-i", o.ringFile);
   const concatIn = o.segments.map((_, i) => `[v${i}]`).join("");
   filters.push(`${concatIn}concat=n=${n}:v=1:a=0[vc]`);
-  filters.push(`[vc]ass='${filterPath(o.assFile)}':fontsdir='${filterPath(o.fontsDir)}'[vout]`);
+  if (o.ringFile) {
+    const x = Math.round((WIDTH - RING_SIZE) / 2);
+    filters.push(`[vc][${n + 1}:v]overlay=${x}:${RING_TOP}[vr]`);
+  }
+  filters.push(`[${o.ringFile ? "vr" : "vc"}]ass='${filterPath(o.assFile)}':fontsdir='${filterPath(o.fontsDir)}'[vout]`);
 
   args.push(
     "-filter_complex", filters.join(";"),

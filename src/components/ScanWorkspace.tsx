@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { DEFAULT_DELIVERY, DELIVERIES, type Delivery } from "@/lib/delivery";
+import { MAX_UPLOADS, MAX_UPLOAD_BYTES, videoTypeFor } from "@/lib/uploads";
 import { CLIP_SECONDS, PRICE_PER_SECOND, estimateCostUsd, type Resolution } from "@/lib/pricing";
 
 export type StudioMedia = {
@@ -11,6 +12,8 @@ export type StudioMedia = {
   url: string;
   source_media_id: string | null;
   is_video: boolean;
+  /** A video you uploaded yourself (not an AI-animated photo). */
+  uploaded: boolean;
 };
 
 export type VoiceTake = {
@@ -47,6 +50,7 @@ export type StudioPost = {
 export type StudioSocial = {
   /** APP_PASSWORD is set; connecting and posting are blocked without it. */
   guarded: boolean;
+  isPublic: boolean;
   accounts: { platform: "tiktok" | "instagram"; name: string | null; expired: boolean }[];
   posts: StudioPost[];
 };
@@ -160,6 +164,51 @@ export default function ScanWorkspace(props: StudioProps) {
   const [progress, setProgress] = useState<{ stage?: string; percent?: number } | null>(props.renderProgress);
   const [now, setNow] = useState(() => Date.now());
   const [drafts, setDrafts] = useState<Record<string, { title: string; description: string; tags: string }>>({});
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
+  const [isPublic, setIsPublic] = useState(social.isPublic);
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
+  useEffect(() => setIsPublic(social.isPublic), [social.isPublic]);
+
+  /** Sends videos straight to storage (they're too big to pass through the server), then adds them to the scan. */
+  async function uploadVideos(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setError(null);
+    setNotice(null);
+    try {
+      let added = 0;
+      for (const file of Array.from(files)) {
+        if (uploads.length + added >= MAX_UPLOADS) throw new Error(`Up to ${MAX_UPLOADS} uploaded videos per scan.`);
+        if (!videoTypeFor(file.name, file.type)) throw new Error(`${file.name}: use an MP4, MOV or WebM video.`);
+        if (file.size > MAX_UPLOAD_BYTES) throw new Error(`${file.name} is too large (max ${MAX_UPLOAD_BYTES / 1024 / 1024} MB).`);
+        setUploadPct(0);
+        const slot = await postJson<{ key: string; contentType: string; uploadUrl: string }>(`/api/scans/${scanId}/uploads`, {
+          filename: file.name,
+          contentType: file.type,
+          size: file.size,
+        });
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("PUT", slot.uploadUrl);
+          xhr.setRequestHeader("Content-Type", slot.contentType);
+          xhr.upload.onprogress = (e) => e.lengthComputable && setUploadPct(Math.round((e.loaded / e.total) * 100));
+          xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload failed (${xhr.status}).`)));
+          xhr.onerror = () =>
+            reject(new Error("The upload was blocked. Your video storage needs a CORS rule that allows PUT from this site (see the README)."));
+          xhr.send(file);
+        });
+        await postJson(`/api/scans/${scanId}/uploads`, { key: slot.key }, "PUT");
+        added++;
+      }
+      setNotice(`Added ${added} video${added === 1 ? "" : "s"}. They'll be used in the final video.`);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed.");
+    } finally {
+      setUploadPct(null);
+    }
+  }
+
   const [privacy, setPrivacy] = useState("SELF_ONLY");
   const [posts, setPosts] = useState<StudioPost[]>(social.posts);
   useEffect(() => setPosts(social.posts), [social.posts]);
@@ -263,10 +312,12 @@ export default function ScanWorkspace(props: StudioProps) {
 
   const photos = media.filter((m) => m.kind === "product_image");
   const clips = media.filter((m) => m.kind === "clip");
+  const uploads = clips.filter((c) => c.uploaded);
+  const animated = clips.filter((c) => !c.uploaded);
   const clipBySource = new Map(clips.map((c) => [c.source_media_id, c]));
   const pendingSources = new Set(pendingJobs.map((j) => j.media_id));
   const unanimated = photos.filter((p) => !clipBySource.has(p.id) && !pendingSources.has(p.id));
-  const slots = Math.max(0, maxClips - clips.length - pendingJobs.length);
+  const slots = Math.max(0, maxClips - animated.length - pendingJobs.length);
   const toAnimate = Math.min(slots, unanimated.length);
   const cost = mock ? 0 : estimateCostUsd(resolution as Resolution, toAnimate);
 
@@ -512,16 +563,16 @@ export default function ScanWorkspace(props: StudioProps) {
       </div>
       <div role="tabpanel" id="panel-animation" aria-labelledby="tab-animation" hidden={tab !== "animation"} className="space-y-4 pt-4">
       <section className={card}>
-        <h3 className="font-medium">Animated clips (Wan 2.5)</h3>
+        <h3 className="font-medium">Animate your photos (Wan 2.5)</h3>
         {photos.length === 0 ? (
-          <p className="text-sm text-neutral-500">This scan has no product photos. Add them when you start a scan.</p>
+          <p className="text-sm text-neutral-500">No product photos on this scan. Upload your own product video below instead.</p>
         ) : (
           <>
             <div className="grid grid-cols-3 gap-2">
               {photos.map((p) => {
                 const clip = clipBySource.get(p.id);
                 const pending = pendingSources.has(p.id);
-                const label = clip ? (clip.is_video ? "Animated" : "Mock clip") : pending ? "Animating…" : "Photo";
+                const label = clip ? (clip.is_video ? "Animated" : "Mock clip") : pending ? "Animating…" : "Photo (slow zoom)";
                 return (
                   <figure key={p.id} className="space-y-1">
                     <div className="aspect-[9/16] overflow-hidden rounded-md bg-neutral-100">
@@ -571,10 +622,62 @@ export default function ScanWorkspace(props: StudioProps) {
               </button>
             </div>
             <p className="text-xs text-neutral-500">
-              {CLIP_SECONDS}-second clips, up to {maxClips} per scan.
+              {CLIP_SECONDS}-second clips, up to {maxClips} per scan. Photos you don&apos;t animate get a slow zoom.
               {pendingJobs.length > 0 && ` ${pendingJobs.length} rendering now; this page updates itself.`}
             </p>
           </>
+        )}
+      </section>
+
+      <section className={card}>
+        <h3 className="font-medium">Or upload your own product video</h3>
+        <p className="text-sm text-neutral-500">
+          Real footage of the product (MP4, MOV or WebM, up to {MAX_UPLOAD_BYTES / 1024 / 1024} MB). It&apos;s cut into the final video along with the
+          photos and clips, under the voiceover. No AI credits are used.
+        </p>
+        <label className={`inline-block cursor-pointer rounded-md border px-4 py-2 text-sm font-medium ${uploadPct !== null || uploads.length >= MAX_UPLOADS ? "pointer-events-none opacity-40" : ""}`}>
+          {uploadPct !== null ? `Uploading… ${uploadPct}%` : "Choose video"}
+          <input
+            type="file"
+            accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm,.m4v"
+            multiple
+            className="sr-only"
+            disabled={uploadPct !== null || uploads.length >= MAX_UPLOADS}
+            onChange={(e) => {
+              void uploadVideos(e.target.files);
+              e.target.value = "";
+            }}
+          />
+        </label>
+        {uploadPct !== null && (
+          <div className="h-2 overflow-hidden rounded-full bg-neutral-100" role="progressbar" aria-valuenow={uploadPct} aria-valuemin={0} aria-valuemax={100}>
+            <div className="h-full rounded-full bg-neutral-900 transition-all" style={{ width: `${uploadPct}%` }} />
+          </div>
+        )}
+        {uploads.length > 0 && (
+          <div className="grid grid-cols-3 gap-2">
+            {uploads.map((u) => (
+              <figure key={u.id} className="space-y-1">
+                <div className="aspect-[9/16] overflow-hidden rounded-md bg-neutral-100">
+                  <video src={u.url} controls muted loop playsInline preload="metadata" className="h-full w-full object-cover" />
+                </div>
+                <figcaption className="text-center">
+                  <button
+                    className="text-xs text-neutral-500 underline disabled:opacity-40"
+                    disabled={busy !== null}
+                    onClick={() =>
+                      run(`rm-${u.id}`, async () => {
+                        await call(`/api/clips/${u.id}`, { method: "DELETE" });
+                        return "Video removed.";
+                      })
+                    }
+                  >
+                    Remove
+                  </button>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
         )}
       </section>
 
@@ -592,7 +695,7 @@ export default function ScanWorkspace(props: StudioProps) {
         <p className="text-sm text-neutral-500">
           Puts your clips (or photos with a slow zoom), the voiceover and captions together. No AI video credits are
           used.
-          {clips.length === 0 && !renderJobId && " No animated clips yet, so your photos will be used."}
+          {clips.length === 0 && !renderJobId && " No clips or videos yet, so your photos will be used."}
         </p>
 
         {renderJobId !== null ? (
@@ -757,6 +860,43 @@ export default function ScanWorkspace(props: StudioProps) {
             </div>
           );
         })}
+      </section>
+
+      <section className={card}>
+        <h3 className="font-medium">Public page</h3>
+        <p className="text-sm text-neutral-500">
+          A shareable page with the score and the full ingredient breakdown. Add the link to your video description. It&apos;s private until you turn it on.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-40"
+            disabled={busy !== null}
+            onClick={() =>
+              run("public", async () => {
+                const r = await postJson<{ is_public: boolean }>(`/api/scans/${scanId}`, { is_public: !isPublic }, "PATCH");
+                setIsPublic(r.is_public);
+                return r.is_public ? "Public page is on." : "Public page is off.";
+              })
+            }
+          >
+            {isPublic ? "Turn off" : "Make public"}
+          </button>
+          {isPublic && (
+            <>
+              <a className="text-sm underline" href={`/p/${scanId}`} target="_blank" rel="noreferrer">
+                Open page
+              </a>
+              <button
+                className="text-sm underline"
+                onClick={() => void navigator.clipboard.writeText(`${window.location.origin}/p/${scanId}`).then(() => setNotice("Link copied."))}
+              >
+                Copy link
+              </button>
+            </>
+          )}
+        </div>
+        {isPublic && <p className="break-all text-xs text-neutral-400">{origin}/p/{scanId}</p>}
+        {isPublic && <p className="text-xs text-neutral-500">When you post from here, the link is added to the caption automatically.</p>}
       </section>
 
       <section className={card}>

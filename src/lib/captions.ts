@@ -76,14 +76,17 @@ function assText(t: string): string {
 
 /**
  * ASS subtitle file for a 1080x1920 video: bold white captions with a black
- * outline in the lower third (clear of TikTok/Reels buttons) and a score badge
- * at the top for the whole video.
+ * outline in the lower third (clear of TikTok/Reels buttons) and the score number
+ * for the ring overlay at the top for the whole video.
  */
 export function buildAss(opts: {
   words: Word[];
   duration: number;
   fontName: string;
-  scoreLabel?: string | null;
+  /** Overall score; drawn as the number inside the ring overlay. */
+  score?: number | null;
+  /** Centre of the ring overlay, in video pixels. */
+  ringCenter?: { x: number; y: number };
   width?: number;
   height?: number;
 }): string {
@@ -92,8 +95,9 @@ export function buildAss(opts: {
   const lines = captionChunks(opts.words).map(
     (c) => `Dialogue: 0,${assTime(c.start)},${assTime(c.end)},Caption,,0,0,0,,${assText(c.text)}`,
   );
-  if (opts.scoreLabel) {
-    lines.push(`Dialogue: 1,${assTime(0)},${assTime(opts.duration)},Badge,,0,0,0,,${assText(opts.scoreLabel)}`);
+  if (opts.score != null) {
+    const c = opts.ringCenter ?? { x: Math.round(W / 2), y: 300 };
+    lines.push(`Dialogue: 1,${assTime(0)},${assTime(opts.duration)},RingScore,,0,0,0,,{\\an5\\pos(${c.x},${c.y})}${Math.round(opts.score)}`);
   }
   return `[Script Info]
 ScriptType: v4.00+
@@ -105,7 +109,7 @@ ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Caption,${opts.fontName},78,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,7,1,2,70,70,520,1
-Style: Badge,${opts.fontName},52,&H00FFFFFF,&H00FFFFFF,&H00222222,&H00222222,-1,0,0,0,100,100,2,0,3,16,0,8,40,40,170,1
+Style: RingScore,${opts.fontName},112,&H00171717,&H00171717,&H00171717,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text

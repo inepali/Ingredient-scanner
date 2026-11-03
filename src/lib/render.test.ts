@@ -5,6 +5,7 @@ import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildAss, captionChunks } from "./captions.ts";
+import { ringPixels, ringPng } from "./ring.ts";
 import { assignSources, planSegments } from "./timeline.ts";
 import { buildFfmpegArgs, isRenderStale, parseProgressSeconds, runFfmpeg } from "./render.ts";
 import { mockAlignment, silentWav } from "./mock.ts";
@@ -19,12 +20,12 @@ test("captionChunks: max 4 words, breaks at sentence ends, holds until the next 
   assert.ok(chunks[0].end >= chunks[1].start - 1e-9);
 });
 
-test("buildAss has styles, timed captions and a score badge", () => {
-  const ass = buildAss({ words: words("Hello there friend"), duration: 3, fontName: "DejaVu Sans", scoreLabel: "Score 42/100" });
+test("buildAss has styles, timed captions and the ring score number", () => {
+  const ass = buildAss({ words: words("Hello there friend"), duration: 3, fontName: "DejaVu Sans", score: 42 });
   assert.match(ass, /PlayResX: 1080/);
   assert.match(ass, /Dialogue: 0,0:00:00\.00,.*Caption,,0,0,0,,HELLO THERE FRIEND/);
-  assert.match(ass, /Dialogue: 1,0:00:00\.00,0:00:03\.00,Badge,,0,0,0,,SCORE 42\/100/);
-  assert.doesNotMatch(buildAss({ words: [], duration: 1, fontName: "x" }), /Badge,,/);
+  assert.match(ass, /Dialogue: 1,0:00:00\.00,0:00:03\.00,RingScore,,0,0,0,,\{\\an5\\pos\(540,300\)\}42/);
+  assert.doesNotMatch(buildAss({ words: [], duration: 1, fontName: "x" }), /RingScore,,/);
 });
 
 test("planSegments follows the spoken words", () => {
@@ -118,7 +119,8 @@ test("real render: clip + still + captions -> 1080x1920 mp4", { skip: !hasFfmpeg
       { number: 1, photoPath: join(dir, "photo.jpg"), clipPath: join(dir, "clip.mp4"), clipIsVideo: true },
       { number: 2, photoPath: join(dir, "photo.jpg"), clipPath: null, clipIsVideo: false },
     ]);
-    writeFileSync(join(dir, "c.ass"), buildAss({ words: w, duration: seconds, fontName: "DejaVu Sans", scoreLabel: "Score 42/100" }));
+    writeFileSync(join(dir, "c.ass"), buildAss({ words: w, duration: seconds, fontName: "DejaVu Sans", score: 42 }));
+    writeFileSync(join(dir, "ring.png"), ringPng(300, 42, "#facc15"));
 
     const out = join(dir, "out.mp4");
     const progress: number[] = [];
@@ -129,6 +131,7 @@ test("real render: clip + still + captions -> 1080x1920 mp4", { skip: !hasFfmpeg
         assFile: join(dir, "c.ass"),
         fontsDir: join(process.cwd(), "assets/fonts"),
         outFile: out,
+        ringFile: join(dir, "ring.png"),
         total: seconds,
         preset: "ultrafast",
       }),
@@ -178,4 +181,20 @@ test("ffmpegPath skips a bad FFMPEG_PATH and finds a working ffmpeg", { skip: !h
   } finally {
     delete process.env.FFMPEG_PATH;
   }
+});
+
+test("score ring: coloured arc clockwise from the top, grey track for the rest", () => {
+  const size = 264;
+  const px = ringPixels(size, 32, "#f97316");
+  const at = (x: number, y: number) => [...px.slice((y * size + x) * 4, (y * size + x) * 4 + 4)];
+  const c = size / 2;
+  const r = (54 / 132) * size;
+  assert.deepEqual(at(c, Math.round(c - r)).slice(0, 3), [249, 115, 22]); // top: arc starts here
+  assert.deepEqual(at(Math.round(c + r), c).slice(0, 3), [249, 115, 22]); // 3 o'clock: inside 32%? 25% yes
+  assert.deepEqual(at(c, Math.round(c + r)).slice(0, 3), [229, 229, 229]); // bottom: track
+  assert.deepEqual(at(Math.round(c - r), c).slice(0, 3), [229, 229, 229]); // 9 o'clock: track
+  assert.equal(at(c, c)[3], Math.round(0.94 * 255)); // white disc behind the number
+  assert.equal(at(1, 1)[3], 0); // corners stay transparent
+  const png = ringPng(60, 100, "#16a34a");
+  assert.equal(png.subarray(1, 4).toString("ascii"), "PNG");
 });

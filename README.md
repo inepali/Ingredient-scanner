@@ -72,3 +72,26 @@ Posts show "processing" until the platform finishes, then flip to posted. A vide
 ## Barcode instead of a label photo
 
 On the new-scan page (and the phone upload page) use **Scan the barcode instead**: the camera reads the code (Chrome/Edge/Android; iPhone Safari can't yet, so type the digits under the bars), the product and its ingredient list come from Open Food Facts, and **Analyze product** scores that list the same way as a photo. If the product isn't on Open Food Facts or has no ingredient list, photograph the label instead. A label photo, if you add one, takes priority over the barcode list.
+
+## Your own product videos (Animation tab)
+
+Upload real footage (MP4, MOV, WebM, up to 150 MB, 6 per scan) on the Animation tab. Videos go straight from your browser to the R2 **videos** bucket, because Vercel can't pass files that large through a function, so the bucket needs a CORS rule. In Cloudflare: R2 → your videos bucket → Settings → CORS policy:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://YOUR-APP.vercel.app", "http://localhost:3000"],
+    "AllowedMethods": ["PUT", "GET"],
+    "AllowedHeaders": ["content-type"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Uploaded videos are cut into the final video with the photos and animated clips (looped or trimmed to fit each scene), under the voiceover. No AI credits are used.
+
+## Public report page
+
+Social tab → **Public page** → Make public. The page `/p/<scan id>` shows the score ring and the full ingredient breakdown, works without the password, and is not indexed by search engines. It's off by default; turning it off makes the link return "not found". When a scan is public, the link is added to the caption when you post from the Social tab.
+
+The video's score is now the same ring as the page header (coloured arc from the top, number in the middle).

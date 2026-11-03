@@ -7,7 +7,9 @@ import { latestVideo } from "./queries";
 import { parseScript } from "./script";
 import { buildAss } from "./captions";
 import { assignSources, planSegments, type PhotoRef } from "./timeline";
-import { buildFfmpegArgs, runFfmpeg, type RenderProgress } from "./render";
+import { RING_CENTER, RING_SIZE, buildFfmpegArgs, runFfmpeg, type RenderProgress } from "./render";
+import { ringPng } from "./ring";
+import { BAND_HEX, bandFor } from "./scoring";
 import type { MediaRow } from "./db-types";
 
 const FONT_NAME = "DejaVu Sans";
@@ -52,7 +54,9 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
     const media = (mediaData ?? []) as MediaRow[];
     const photos = media.filter((m) => m.kind === "product_image");
     const clips = media.filter((m) => m.kind === "clip");
-    if (photos.length === 0) throw new Error("Add at least one product photo first.");
+    // Videos you uploaded yourself (no source photo) join the cut alongside the animated photos.
+    const uploads = clips.filter((c) => !c.source_media_id);
+    if (photos.length === 0 && uploads.length === 0) throw new Error("Add a product photo or upload a product video first.");
 
     // Pull everything this render needs into the temp folder (0-10%).
     const refs: PhotoRef[] = [];
@@ -71,6 +75,13 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
       }
       refs.push({ number: i + 1, photoPath: photoFile, clipPath: clipFile, clipIsVideo });
     }
+    for (const [k, up] of uploads.entries()) {
+      await report(`Downloading your videos (${k + 1} of ${uploads.length})`, 9, true);
+      const ext = (/\.(mp4|mov|webm|m4v)$/i.exec(up.storage_path)?.[1] ?? "mp4").toLowerCase();
+      const file = join(dir, `upload-${k + 1}.${ext}`);
+      await writeFile(file, await getMedia("videos", up.storage_path));
+      refs.push({ number: photos.length + k + 1, photoPath: file, clipPath: file, clipIsVideo: true });
+    }
     const audioFile = join(dir, video.audio_path.endsWith(".wav") ? "voice.wav" : "voice.mp3");
     await writeFile(audioFile, await getMedia("videos", video.audio_path));
 
@@ -88,9 +99,15 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
         words,
         duration: total,
         fontName: FONT_NAME,
-        scoreLabel: scan?.overall_score != null ? `Score ${scan.overall_score}/100` : null,
+        score: scan?.overall_score ?? null,
+        ringCenter: RING_CENTER,
       }),
     );
+    let ringFile: string | undefined;
+    if (scan?.overall_score != null) {
+      ringFile = join(dir, "ring.png");
+      await writeFile(ringFile, ringPng(RING_SIZE, scan.overall_score, BAND_HEX[bandFor(scan.overall_score)]));
+    }
 
     // Encode (10-90%): ffmpeg reports how many seconds of video it has written.
     await report("Rendering video", 10, true);
@@ -103,6 +120,7 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
         assFile,
         fontsDir: process.env.FONTS_DIR ?? join(process.cwd(), "assets", "fonts"),
         outFile,
+        ringFile,
         total,
         preset: process.env.RENDER_PRESET || "veryfast",
       }),

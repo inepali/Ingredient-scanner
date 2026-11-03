@@ -5,6 +5,8 @@ import { NextResponse, type NextRequest } from "next/server";
 export function middleware(req: NextRequest) {
   const pass = process.env.APP_PASSWORD;
   if (!pass) return NextResponse.next();
+  // Public report pages (/p/<id>) are meant to be shared; they only show scans you turned public.
+  if (req.nextUrl.pathname.startsWith("/p/")) return NextResponse.next();
 
   const header = req.headers.get("authorization") ?? "";
   if (header.startsWith("Basic ")) {

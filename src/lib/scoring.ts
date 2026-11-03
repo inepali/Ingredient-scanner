@@ -55,3 +55,12 @@ export function applyCaps(score: number, items: ScoredItem[]): number {
   }
   return Math.max(0, Math.min(100, overall));
 }
+
+/** Ring/arc colour per band (the same Tailwind shades the scan page uses). */
+export const BAND_HEX: Record<Band, string> = {
+  great: "#16a34a",
+  good: "#84cc16",
+  fair: "#facc15",
+  poor: "#f97316",
+  avoid: "#dc2626",
+};

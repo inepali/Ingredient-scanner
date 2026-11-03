@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { bandFor, type Band } from "@/lib/scoring";
 import type { OffSummary } from "@/lib/openfoodfacts";
 import { parseScript, type VideoScript } from "@/lib/script";
+import ScoreRing from "@/components/ScoreRing";
 import ProductName from "@/components/ProductName";
 import ScriptSection from "@/components/ScriptSection";
 import { isMock } from "@/lib/mock";
@@ -21,13 +22,6 @@ const BAND_BAR: Record<Band, string> = {
   fair: "bg-yellow-400",
   poor: "bg-orange-500",
   avoid: "bg-red-600",
-};
-const BAND_STROKE: Record<Band, string> = {
-  great: "stroke-green-600",
-  good: "stroke-lime-500",
-  fair: "stroke-yellow-400",
-  poor: "stroke-orange-500",
-  avoid: "stroke-red-600",
 };
 const BAND_LABEL: Record<Band, string> = {
   great: "Great",
@@ -62,7 +56,7 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
 
   const { data: scan } = await db
     .from("scans")
-    .select("id, product_name, status, overall_score, allergens, label_score, external_score, off_data")
+    .select("id, product_name, status, overall_score, allergens, label_score, external_score, off_data, is_public")
     .eq("id", id)
     .maybeSingle();
   if (!scan) notFound();
@@ -142,7 +136,8 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
     kind: m.kind as "product_image" | "clip",
     url: urls.get(m.storage_path) ?? "",
     source_media_id: m.source_media_id,
-    is_video: m.storage_path.endsWith(".mp4"),
+    is_video: /\.(mp4|mov|webm|m4v)$/i.test(m.storage_path),
+    uploaded: m.kind === "clip" && !m.source_media_id,
   }));
   const studioCopy: StudioCopy[] = ((copyData ?? []) as CopyRow[]).map((c) => ({
     platform: c.platform,
@@ -204,8 +199,6 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
 
   const overall: number = scan.overall_score;
   const overallBand = bandFor(overall);
-  const R = 54;
-  const C = 2 * Math.PI * R;
   const allergens: string[] = scan.allergens ?? [];
   const off = (scan.off_data ?? null) as OffSummary | null;
 
@@ -288,30 +281,7 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
       </div>
 
       <header className="flex items-center gap-6">
-        <svg viewBox="0 0 120 120" className="h-32 w-32 shrink-0 -rotate-90" role="img" aria-label={`Overall score ${overall} out of 100`}>
-          <circle cx="60" cy="60" r={R} fill="none" strokeWidth="10" className="stroke-neutral-200" />
-          <circle
-            cx="60"
-            cy="60"
-            r={R}
-            fill="none"
-            strokeWidth="10"
-            strokeLinecap="round"
-            strokeDasharray={C}
-            strokeDashoffset={C * (1 - overall / 100)}
-            className={BAND_STROKE[overallBand]}
-          />
-          <text
-            x="60"
-            y="60"
-            textAnchor="middle"
-            dominantBaseline="central"
-            className="rotate-90 fill-neutral-900 text-3xl font-semibold"
-            style={{ transformOrigin: "60px 60px" }}
-          >
-            {overall}
-          </text>
-        </svg>
+        <ScoreRing score={overall} />
         <div className="space-y-1">
           <ProductName scanId={id} initial={scan.product_name} />
           <p className="text-neutral-600">
@@ -341,6 +311,7 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
         copy={studioCopy}
         social={{
           guarded: Boolean(process.env.APP_PASSWORD),
+          isPublic: Boolean(scan.is_public),
           accounts: ((acctData ?? []) as { platform: "tiktok" | "instagram"; account_name: string | null; expires_at: string | null }[]).map((a) => ({
             platform: a.platform,
             name: a.account_name,

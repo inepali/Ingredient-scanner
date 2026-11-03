@@ -1,4 +1,4 @@
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // Cloudflare R2 (S3-compatible) storage. Server-only. Images (label photos,
@@ -81,4 +81,23 @@ export async function mediaUrls(
     }),
   );
   return map;
+}
+
+/** A one-hour link the browser can PUT a file to directly (videos are too big to relay through the server). */
+export async function presignUpload(bucket: MediaBucket, key: string, contentType: string, expiresInSeconds = 3600) {
+  return getSignedUrl(
+    client(),
+    new PutObjectCommand({ Bucket: bucketName(bucket), Key: key, ContentType: contentType }),
+    { expiresIn: expiresInSeconds },
+  );
+}
+
+/** Size in bytes of a stored object, or null if it isn't there. */
+export async function objectSize(bucket: MediaBucket, key: string): Promise<number | null> {
+  try {
+    const res = await client().send(new HeadObjectCommand({ Bucket: bucketName(bucket), Key: key }));
+    return res.ContentLength ?? 0;
+  } catch {
+    return null;
+  }
 }
