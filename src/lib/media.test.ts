@@ -121,3 +121,65 @@ test("parseVoices puts free default voices first and labels them", () => {
   assert.equal(voices[0].description, "female, american");
   assert.deepEqual(parseVoices(null), []);
 });
+
+import { buildPrompt, ensureHook, groupFor, parseTone, pickCandidates } from "./script.ts";
+
+const ings = [
+  { name: "Water", score: 95, reason: "Hydrating." },
+  { name: "Whole grain oats", score: 90, reason: "Fiber-rich whole grain." },
+  { name: "Cane sugar", score: 25, reason: "Added sugar." },
+  { name: "Wheat flour", score: 48, reason: "Refined flour." },
+  { name: "Olive oil", score: 78, reason: "Unsaturated fats." },
+  { name: "Red 40", score: 10, reason: "Synthetic dye." },
+  { name: "Salt", score: 45, reason: "Sodium." },
+  { name: "Palm oil", score: 30, reason: "Saturated fat." },
+];
+
+test("groupFor splits at 60 and 40", () => {
+  assert.deepEqual([100, 60, 59, 40, 39, 0].map(groupFor), ["good", "good", "fair", "fair", "poor", "poor"]);
+});
+
+test("pickCandidates: best greens, worst reds, trivial water skipped", () => {
+  const c = pickCandidates(ings);
+  assert.deepEqual(c.good.map((x) => x.name), ["Whole grain oats", "Olive oil"]); // water dropped
+  assert.deepEqual(c.poor.map((x) => x.name), ["Red 40", "Cane sugar", "Palm oil"]); // worst first
+  assert.deepEqual(c.fair.map((x) => x.name), ["Wheat flour", "Salt"]); // label order
+  assert.deepEqual(c.counts, { good: 3, fair: 2, poor: 3 }); // counts still include water
+  assert.equal(c.poor[0].position, 6);
+});
+
+test("prompt: groups and tone in, no numeric scores, ends on a question rule", () => {
+  const p = buildPrompt({ productName: "Oat Bar", overall: 52, allergens: [], ingredients: ings, tone: "playful" });
+  assert.match(p, /Upbeat, witty/);
+  assert.match(p, /GOOD \(green\)[^]*Whole grain oats[^]*FAIR \(yellow\)[^]*Wheat flour[^]*POOR \(red\)[^]*Red 40/);
+  assert.match(p, /Do you eat this\?/);
+  assert.match(p, /never say or show any numeric score/i);
+  assert.doesNotMatch(p, /\/100/);
+  assert.doesNotMatch(p, /\b52\b/); // the overall number is never given to the model
+  assert.match(p, /a mixed bag/);
+});
+
+test("prompt: empty group is shown as none", () => {
+  const p = buildPrompt({ productName: null, overall: 90, allergens: [], ingredients: [{ name: "Oats", score: 95, reason: null }] });
+  assert.match(p, /POOR \(red\) candidates, worst first:\n\(none\)/);
+});
+
+test("ensureHook adds a question only when missing", () => {
+  const base = { title: "T", scenes: [{ seconds: 5, visual: "v", voiceover: "Skip the sugary stuff." }] };
+  assert.equal(ensureHook(base).scenes[0].voiceover, "Skip the sugary stuff. Do you eat this?");
+  const asked = { title: "T", scenes: [{ seconds: 5, visual: "v", voiceover: "Would you still eat this?" }] };
+  assert.equal(ensureHook(asked), asked);
+  const quoted = { title: "T", scenes: [{ seconds: 5, visual: "v", voiceover: 'Be honest, "do you eat this?"' }] };
+  assert.equal(ensureHook(quoted), quoted);
+});
+
+test("parseScript keeps valid sections; parseTone falls back", () => {
+  const out = parseScript(
+    '{"title":"T","scenes":[{"seconds":4,"visual":"a","voiceover":"x","section":"hook"},{"seconds":4,"visual":"b","voiceover":"y","section":"nope"}]}',
+  );
+  assert.equal(out.scenes[0].section, "hook");
+  assert.equal(out.scenes[1].section, undefined);
+  assert.equal(parseTone("calm"), "calm");
+  assert.equal(parseTone("shouting"), "friendly");
+  assert.equal(parseTone(undefined), "friendly");
+});

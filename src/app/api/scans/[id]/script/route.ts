@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { createScript, offFactsLine } from "@/lib/script";
+import { createScript, offFactsLine, parseTone } from "@/lib/script";
 import { getMedia } from "@/lib/storage";
 import type { LlmImage } from "@/lib/llm";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const body = (await req.json().catch(() => ({}))) as { tone?: unknown };
+  const tone = parseTone(body.tone);
   const db = supabase();
 
   const { data: scan } = await db
@@ -58,6 +60,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       allergens: scan.allergens ?? [],
       offFacts: offFactsLine(scan.off_data),
       photos,
+      tone,
       ingredients: (ings ?? []).map((i) => ({ name: i.raw_name, score: i.score, reason: i.reason })),
     });
 
