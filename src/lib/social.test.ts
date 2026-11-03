@@ -1,0 +1,85 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { decrypt, encrypt } from "./crypto.ts";
+import {
+  authUrl, buildCaption, mapInstagramStatus, mapTikTokStatus, needsRefresh, parseTikTokTokens, tiktokInitBody, apiMessage,
+} from "./social-platforms.ts";
+
+const KEY = "a-long-test-secret-value";
+
+test("encrypt/decrypt round-trips and rejects tampering or a wrong key", () => {
+  const enc = encrypt("tok_123", KEY);
+  assert.ok(!enc.includes("tok_123"));
+  assert.equal(decrypt(enc, KEY), "tok_123");
+  assert.notEqual(encrypt("tok_123", KEY), enc); // random IV
+  assert.throws(() => decrypt(enc, "another-long-secret-value"));
+  const parts = enc.split(".");
+  parts[3] = Buffer.from("xx").toString("base64url");
+  assert.throws(() => decrypt(parts.join("."), KEY));
+  assert.throws(() => encrypt("x", "short"));
+});
+
+test("auth URLs carry client id, scopes, redirect and state", () => {
+  process.env.TIKTOK_CLIENT_KEY = "ck";
+  process.env.INSTAGRAM_APP_ID = "iid";
+  const t = new URL(authUrl("tiktok", "https://x.app/api/social/tiktok/callback", "st"));
+  assert.equal(t.origin + t.pathname, "https://www.tiktok.com/v2/auth/authorize/");
+  assert.equal(t.searchParams.get("client_key"), "ck");
+  assert.match(t.searchParams.get("scope")!, /video\.publish/);
+  assert.equal(t.searchParams.get("state"), "st");
+  const i = new URL(authUrl("instagram", "https://x.app/api/social/instagram/callback", "s2"));
+  assert.equal(i.searchParams.get("client_id"), "iid");
+  assert.match(i.searchParams.get("scope")!, /instagram_business_content_publish/);
+  delete process.env.TIKTOK_CLIENT_KEY;
+  assert.throws(() => authUrl("tiktok", "r", "s"), /TIKTOK_CLIENT_KEY/);
+});
+
+test("TikTok token response parsing", () => {
+  const t = parseTikTokTokens({ access_token: "a", refresh_token: "r", expires_in: 86400, refresh_expires_in: 31536000, open_id: "o" });
+  assert.equal(t.accessToken, "a");
+  assert.equal(t.refreshToken, "r");
+  assert.equal(t.externalId, "o");
+  assert.ok(t.expiresAt!.getTime() > Date.now());
+  assert.throws(() => parseTikTokTokens({ error: "invalid_grant", error_description: "bad code" }), /invalid_grant: bad code/);
+});
+
+test("refresh timing", () => {
+  const now = Date.now();
+  assert.equal(needsRefresh("tiktok", new Date(now + 3600_000), now), false);
+  assert.equal(needsRefresh("tiktok", new Date(now + 60_000), now), true);
+  assert.equal(needsRefresh("instagram", new Date(now + 3 * 86400_000), now), true);
+  assert.equal(needsRefresh("instagram", new Date(now + 30 * 86400_000), now), false);
+  assert.equal(needsRefresh("instagram", null, now), false);
+});
+
+test("caption keeps hashtags and the 2200 limit", () => {
+  const c = buildCaption({ title: "Title", description: "Body", hashtags: ["a", "#b"] });
+  assert.equal(c, "Title\n\nBody\n\n#a #b");
+  const long = buildCaption({ title: "T", description: "x".repeat(5000), hashtags: ["keep"] });
+  assert.ok(long.length <= 2200);
+  assert.ok(long.endsWith("#keep"));
+});
+
+test("TikTok init body uses one whole-file chunk", () => {
+  const b = tiktokInitBody("cap", "SELF_ONLY", 1234);
+  assert.equal(b.source_info.source, "FILE_UPLOAD");
+  assert.equal(b.source_info.chunk_size, 1234);
+  assert.equal(b.source_info.total_chunk_count, 1);
+  assert.equal(b.post_info.privacy_level, "SELF_ONLY");
+});
+
+test("status mapping", () => {
+  assert.equal(mapTikTokStatus("PUBLISH_COMPLETE").status, "published");
+  assert.equal(mapTikTokStatus("PROCESSING_UPLOAD").status, "processing");
+  assert.equal(mapTikTokStatus("FAILED", "bad").detail, "bad");
+  assert.equal(mapInstagramStatus("FINISHED"), "ready");
+  assert.deepEqual(mapInstagramStatus("IN_PROGRESS"), { status: "processing", detail: "IN_PROGRESS" });
+  assert.equal((mapInstagramStatus("ERROR") as { status: string }).status, "failed");
+  assert.equal((mapInstagramStatus("EXPIRED") as { status: string }).status, "failed");
+});
+
+test("error messages from both platforms", () => {
+  assert.equal(apiMessage({ error: { code: "unaudited_client_can_only_post_to_private_accounts", message: "m" } }), "unaudited_client_can_only_post_to_private_accounts: m");
+  assert.equal(apiMessage({ error: { code: "ok", message: "" } }), "");
+  assert.equal(apiMessage({ error: { message: "Invalid token" } }), "Invalid token");
+});

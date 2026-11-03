@@ -46,3 +46,25 @@ Every voiceover you generate is kept as a "take" in the R2 videos bucket (`scans
 - At most `MAX_CLIPS` (default 4) clips per scan; photos that already have a clip are skipped.
 - Voiceover is refused above `MAX_VOICE_CHARS` (default 1800 characters).
 - The UI shows the estimated fal.ai cost before you start, and each job's cost is logged in the `jobs` table.
+
+## Social tab: connect Instagram and TikTok
+
+The Social tab holds the post copy and, once an account is connected, a **Post** button that sends the final video plus your saved title, description and hashtags.
+
+**Before you start**
+1. Set `APP_PASSWORD` (the whole app then asks for it) and `TOKEN_ENCRYPTION_KEY` in Vercel. Connecting is refused without a password, because a connected account can post as you.
+2. Set `APP_URL` to your deployed https address. Platforms don't accept `http://localhost` redirects for this.
+3. Run migration `0007_social_accounts.sql` (already applied to the linked Supabase project).
+
+**TikTok** (developers.tiktok.com)
+- Create an app, add the **Login Kit** and **Content Posting API** products (Direct Post on), request scopes `user.info.basic` and `video.publish`.
+- Redirect URI: `https://YOUR-APP/api/social/tiktok/callback`. Put the keys in `TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET`.
+- Until TikTok audits your app, posts can only be **private ("Only me")**; choosing anything else returns `unaudited_client_can_only_post_to_private_accounts`. Add your own TikTok account as a target user while the app is in development.
+
+**Instagram** (developers.facebook.com, "Instagram API with Instagram Login")
+- Needs a **Business or Creator** Instagram account. Create a Meta app, add the Instagram product, permissions `instagram_business_basic` and `instagram_business_content_publish`.
+- Redirect URI: `https://YOUR-APP/api/social/instagram/callback`. Put the id/secret in `INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET`. In development mode, add your account as a tester/role.
+- Instagram fetches the video from a short-lived signed R2 link, so the videos bucket must be reachable from the internet (signed URLs are).
+- The 60-day token renews itself when you post.
+
+Posts show "processing" until the platform finishes, then flip to posted. A video is never posted twice to the same platform unless you click "Post again". None of the platform calls could be run from the build sandbox; the first real post is the test.

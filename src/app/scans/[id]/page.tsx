@@ -9,7 +9,7 @@ import { isMock } from "@/lib/mock";
 import { mediaUrl, mediaUrls, type MediaBucket } from "@/lib/storage";
 import { isRenderStale } from "@/lib/render";
 import type { CopyRow, JobRow, MediaRow, VoiceoverRow } from "@/lib/db-types";
-import ScanWorkspace, { type StudioCopy, type StudioMedia, type VoiceTake } from "@/components/ScanWorkspace";
+import ScanWorkspace, { type StudioCopy, type StudioPost, type StudioMedia, type VoiceTake } from "@/components/ScanWorkspace";
 
 export const dynamic = "force-dynamic";
 
@@ -117,6 +117,12 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
     .from("social_copy")
     .select("platform, title, description, hashtags")
     .eq("scan_id", id);
+  const { data: acctData } = await db.from("social_accounts").select("platform, account_name, expires_at");
+  const { data: postData } = await db
+    .from("social_posts")
+    .select("id, platform, status, permalink, error, privacy, created_at")
+    .eq("scan_id", id)
+    .order("created_at", { ascending: false });
   const { data: jobData } = await db
     .from("jobs")
     .select("id, input")
@@ -332,6 +338,15 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
         renderStartedAt={(activeRender?.created_at as string | undefined) ?? null}
         renderProgress={(activeRender?.output as { stage?: string; percent?: number } | null | undefined) ?? null}
         copy={studioCopy}
+        social={{
+          guarded: Boolean(process.env.APP_PASSWORD),
+          accounts: ((acctData ?? []) as { platform: "tiktok" | "instagram"; account_name: string | null; expires_at: string | null }[]).map((a) => ({
+            platform: a.platform,
+            name: a.account_name,
+            expired: a.expires_at ? new Date(a.expires_at).getTime() < Date.now() : false,
+          })),
+          posts: ((postData ?? []) as StudioPost[]),
+        }}
         pendingJobs={pendingJobs}
         maxClips={Number(process.env.MAX_CLIPS ?? 4)}
         defaultResolution={defaultResolution}

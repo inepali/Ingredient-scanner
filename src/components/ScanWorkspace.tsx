@@ -35,6 +35,22 @@ export type StudioCopy = {
   hashtags: string[];
 };
 
+export type StudioPost = {
+  id: string;
+  platform: "tiktok" | "instagram";
+  status: "processing" | "published" | "failed";
+  permalink: string | null;
+  error: string | null;
+  privacy: string | null;
+};
+
+export type StudioSocial = {
+  /** APP_PASSWORD is set; connecting and posting are blocked without it. */
+  guarded: boolean;
+  accounts: { platform: "tiktok" | "instagram"; name: string | null; expired: boolean }[];
+  posts: StudioPost[];
+};
+
 export type StudioProps = {
   /** Server-rendered panels for the first two tabs. */
   ingredients: ReactNode;
@@ -52,6 +68,7 @@ export type StudioProps = {
   renderStartedAt: string | null;
   renderProgress: { stage?: string; percent?: number } | null;
   copy: StudioCopy[];
+  social: StudioSocial;
   pendingJobs: { id: string; media_id: string | null }[];
   maxClips: number;
   defaultResolution: "480p" | "720p";
@@ -81,7 +98,7 @@ function postJson<T>(url: string, body: unknown, method = "POST"): Promise<T> {
   });
 }
 
-type TabId = "ingredients" | "script" | "voice" | "animation" | "video" | "copy";
+type TabId = "ingredients" | "script" | "voice" | "animation" | "video" | "social";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "ingredients", label: "Ingredients" },
@@ -89,7 +106,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "voice", label: "Voice" },
   { id: "animation", label: "Animation" },
   { id: "video", label: "Final Video" },
-  { id: "copy", label: "Copy" },
+  { id: "social", label: "Social" },
 ];
 
 const btn =
@@ -97,7 +114,7 @@ const btn =
 const card = "space-y-3 rounded-xl border bg-white p-4";
 
 export default function ScanWorkspace(props: StudioProps) {
-  const { ingredients, scriptPanel, scanId, media, hasScript, audioUrl, voiceTakes, copy, pendingJobs, maxClips, mock, videoUrl, downloadUrl, renderJobId, renderError, renderStartedAt } = props;
+  const { ingredients, scriptPanel, scanId, media, hasScript, audioUrl, voiceTakes, copy, pendingJobs, maxClips, mock, videoUrl, downloadUrl, renderJobId, renderError, renderStartedAt, social } = props;
   const router = useRouter();
 
   const [tab, setTab] = useState<TabId>("ingredients");
@@ -143,6 +160,43 @@ export default function ScanWorkspace(props: StudioProps) {
   const [progress, setProgress] = useState<{ stage?: string; percent?: number } | null>(props.renderProgress);
   const [now, setNow] = useState(() => Date.now());
   const [drafts, setDrafts] = useState<Record<string, { title: string; description: string; tags: string }>>({});
+  const [privacy, setPrivacy] = useState("SELF_ONLY");
+  const [posts, setPosts] = useState<StudioPost[]>(social.posts);
+  useEffect(() => setPosts(social.posts), [social.posts]);
+
+  // Back from a platform's sign-in page: show what happened.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const ok = q.get("social_ok");
+    const bad = q.get("social_error");
+    if (!ok && !bad) return;
+    if (ok) setNotice(`${ok}.`);
+    if (bad) setError(bad);
+    q.delete("social_ok");
+    q.delete("social_error");
+    const qs = q.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`);
+  }, []);
+
+  // Check posts the platform is still processing.
+  const processingKey = posts.filter((p) => p.status === "processing").map((p) => p.id).join(",");
+  useEffect(() => {
+    if (!processingKey) return;
+    const timer = setInterval(async () => {
+      for (const id of processingKey.split(",")) {
+        try {
+          const r = await call<{ status: StudioPost["status"]; permalink?: string | null; error?: string | null }>(`/api/social/posts/${id}`, { method: "POST" });
+          if (r.status !== "processing") {
+            setPosts((cur) => cur.map((p) => (p.id === id ? { ...p, status: r.status, permalink: r.permalink ?? null, error: r.error ?? null } : p)));
+          }
+        } catch {
+          // try again next tick
+        }
+      }
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [processingKey]);
+
   const [resolution, setResolution] = useState<"480p" | "720p">(props.defaultResolution);
 
   useEffect(() => {
@@ -225,7 +279,7 @@ export default function ScanWorkspace(props: StudioProps) {
     voice: audioUrl ? "done" : null,
     animation: pendingJobs.length > 0 ? "busy" : clips.length > 0 ? "done" : null,
     video: renderJobId !== null ? "busy" : videoUrl ? "done" : null,
-    copy: copy.length > 0 ? "done" : null,
+    social: copy.length > 0 ? "done" : null,
   };
 
   return (
@@ -593,13 +647,13 @@ export default function ScanWorkspace(props: StudioProps) {
 
       {videoUrl && (
         <div className="flex justify-end">
-          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => selectTab("copy", true)}>
-            Next: Copy →
+          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => selectTab("social", true)}>
+            Next: Social →
           </button>
         </div>
       )}
       </div>
-      <div role="tabpanel" id="panel-copy" aria-labelledby="tab-copy" hidden={tab !== "copy"} className="space-y-4 pt-4">
+      <div role="tabpanel" id="panel-social" aria-labelledby="tab-social" hidden={tab !== "social"} className="space-y-4 pt-4">
       <section className={card}>
         <h3 className="font-medium">Social copy: title, description and tags</h3>
         {!videoUrl ? (
@@ -690,6 +744,115 @@ export default function ScanWorkspace(props: StudioProps) {
             </div>
           );
         })}
+      </section>
+
+      <section className={card}>
+        <h3 className="font-medium">Connect and post</h3>
+        {!social.guarded && (
+          <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+            Set an <code>APP_PASSWORD</code> environment variable first. Connected accounts can post as you, so this app needs a password before it allows connecting.
+          </p>
+        )}
+        {(["tiktok", "instagram"] as const).map((platform) => {
+          const label = platform === "tiktok" ? "TikTok" : "Instagram";
+          const acct = social.accounts.find((a) => a.platform === platform);
+          const connected = Boolean(acct) && !acct?.expired;
+          const platformPosts = posts.filter((p) => p.platform === platform);
+          const latest = platformPosts[0];
+          const hasCopy = copy.some((c) => c.platform === platform);
+          const blocked = busy !== null || !videoUrl || !hasCopy;
+          return (
+            <div key={platform} className="space-y-2 rounded-md bg-neutral-50 p-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <strong>{label}</strong>{" "}
+                  <span className="text-neutral-500">
+                    {acct ? (acct.expired ? "session expired" : `connected${acct.name ? ` as ${acct.name}` : ""}`) : "not connected"}
+                  </span>
+                </div>
+                {connected ? (
+                  <button
+                    className="text-xs underline disabled:opacity-40"
+                    disabled={busy !== null}
+                    onClick={() =>
+                      run(`off-${platform}`, async () => {
+                        await postJson("/api/social/disconnect", { platform });
+                        return `${label} disconnected.`;
+                      })
+                    }
+                  >
+                    Disconnect
+                  </button>
+                ) : (
+                  <a
+                    className={`rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white ${social.guarded ? "" : "pointer-events-none opacity-40"}`}
+                    href={`/api/social/connect?platform=${platform}&scan=${scanId}`}
+                    aria-disabled={!social.guarded}
+                  >
+                    {acct?.expired ? `Reconnect ${label}` : `Connect ${label}`}
+                  </a>
+                )}
+              </div>
+
+              {connected && (
+                <div className="space-y-2">
+                  {platform === "tiktok" && (
+                    <label className="block space-y-1">
+                      <span className="text-xs text-neutral-500">Who can see it</span>
+                      <select value={privacy} onChange={(e) => setPrivacy(e.target.value)} className="w-full rounded-md border bg-white px-2 py-1.5">
+                        <option value="SELF_ONLY">Only me (required until TikTok approves the app)</option>
+                        <option value="FOLLOWER_OF_CREATOR">Followers</option>
+                        <option value="MUTUAL_FOLLOW_FRIENDS">Friends</option>
+                        <option value="PUBLIC_TO_EVERYONE">Everyone</option>
+                      </select>
+                    </label>
+                  )}
+                  <button
+                    className={btn}
+                    disabled={blocked || latest?.status === "processing"}
+                    onClick={() =>
+                      run(`post-${platform}`, async () => {
+                        const again = latest?.status === "published";
+                        const r = await call<{ id: string; status: StudioPost["status"] }>(`/api/scans/${scanId}/post`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ platform, privacy, again }),
+                        });
+                        setPosts((cur) => [{ id: r.id, platform, status: r.status, permalink: null, error: null, privacy: null }, ...cur]);
+                        return `Sent to ${label}. It's being processed; this page will update.`;
+                      })
+                    }
+                  >
+                    {busy === `post-${platform}` ? "Sending…" : latest?.status === "published" ? `Post to ${label} again` : `Post to ${label}`}
+                  </button>
+                  {!videoUrl && <p className="text-xs text-neutral-500">Render the final video first.</p>}
+                  {videoUrl && !hasCopy && <p className="text-xs text-neutral-500">Generate the social copy first.</p>}
+                </div>
+              )}
+
+              {latest && (
+                <p className={`text-xs ${latest.status === "failed" ? "text-red-700" : latest.status === "published" ? "text-green-700" : "text-neutral-500"}`}>
+                  {latest.status === "processing" && `${label} is processing the video…`}
+                  {latest.status === "published" && (
+                    <>
+                      Posted.{" "}
+                      {latest.permalink && (
+                        <a className="underline" href={latest.permalink} target="_blank" rel="noreferrer">
+                          View
+                        </a>
+                      )}
+                      {platform === "tiktok" && " Open TikTok to see it (private posts show on your profile)."}
+                    </>
+                  )}
+                  {latest.status === "failed" && `Failed: ${latest.error ?? "unknown error"}`}
+                </p>
+              )}
+            </div>
+          );
+        })}
+        <p className="text-xs text-neutral-500">
+          TikTok keeps posts from unapproved apps private. Instagram needs a Business or Creator account.
+        </p>
       </section>
       </div>
     </div>
