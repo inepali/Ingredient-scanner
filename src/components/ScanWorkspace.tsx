@@ -622,7 +622,7 @@ export default function ScanWorkspace(props: StudioProps) {
               </button>
             </div>
             <p className="text-xs text-neutral-500">
-              {CLIP_SECONDS}-second clips, up to {maxClips} per scan. Photos you don&apos;t animate get a slow zoom.
+              {CLIP_SECONDS}-second clips, up to {maxClips} per scan. Photos you don&apos;t animate get a slow zoom, unless you upload your own video, which replaces them.
               {pendingJobs.length > 0 && ` ${pendingJobs.length} rendering now; this page updates itself.`}
             </p>
           </>

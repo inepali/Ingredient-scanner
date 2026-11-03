@@ -73,6 +73,8 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
         clipFile = join(dir, `clip-${i + 1}${clipIsVideo ? ".mp4" : ".jpg"}`);
         await writeFile(clipFile, await getMedia("videos", clip.storage_path));
       }
+      // With your own footage, plain still photos are left out; animated clips still count.
+      if (uploads.length > 0 && !clipFile) continue;
       refs.push({ number: i + 1, photoPath: photoFile, clipPath: clipFile, clipIsVideo });
     }
     for (const [k, up] of uploads.entries()) {

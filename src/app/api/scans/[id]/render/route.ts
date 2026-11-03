@@ -21,12 +21,14 @@ export const POST = handler(async (_req, ctx) => {
   if (!video?.script) throw new HttpError("Create the script first.");
   if (!video.audio_path) throw new HttpError("Generate the voiceover first.");
 
-  const { count } = await db
+  // Needs something to show: a product photo, or a video you uploaded.
+  const { data: visuals } = await db
     .from("scan_media")
-    .select("id", { count: "exact", head: true })
+    .select("kind, source_media_id")
     .eq("scan_id", id)
-    .eq("kind", "product_image");
-  if (!count) throw new HttpError("Add at least one product photo first.");
+    .in("kind", ["product_image", "clip"]);
+  const hasVisual = (visuals ?? []).some((m) => m.kind === "product_image" || !m.source_media_id);
+  if (!hasVisual) throw new HttpError("Add a product photo or upload a product video first.");
 
   // One render at a time; a job that stopped sending heartbeats is written off.
   const { data: running } = await db
