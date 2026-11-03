@@ -186,7 +186,7 @@ export function parseProduct(p: RawProduct): Omit<OffSummary, "confidence" | "ma
 
 function headers() {
   // Open Food Facts asks every app to identify itself.
-  return { "user-agent": "IngredientScanner/0.1 (personal tool; sanjayaghimire@gmail.com)" };
+  return { "user-agent": "IngredientScanner/0.1 (personal tool)" };
 }
 
 async function getJson(url: string): Promise<RawProduct | null> {
@@ -242,4 +242,34 @@ export async function lookupProduct(scanned: ScannedProduct): Promise<OffSummary
     console.error("Open Food Facts lookup failed:", err);
     return null;
   }
+}
+
+
+// ---------- barcode lookup ----------
+
+/** EAN-8 / UPC-A (12) / EAN-13 / GTIN-14 with a valid GS1 check digit. */
+export function isValidBarcode(code: string): boolean {
+  if (!/^\d+$/.test(code) || ![8, 12, 13, 14].includes(code.length)) return false;
+  const digits = code.split("").map(Number);
+  const check = digits.pop()!;
+  let sum = 0;
+  digits.reverse().forEach((d, i) => (sum += d * (i % 2 === 0 ? 3 : 1)));
+  return (10 - (sum % 10)) % 10 === check;
+}
+
+export type BarcodeProduct = { summary: OffSummary; ingredientsText: string | null };
+
+/** The product for a scanned barcode, or null if Open Food Facts doesn't know it. */
+export async function fetchByBarcode(code: string): Promise<BarcodeProduct | null> {
+  const data = await getJson(
+    `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}?fields=${FIELDS}`,
+  );
+  const product = data?.status === 1 ? (data.product as RawProduct | undefined) : undefined;
+  const parsed = product ? parseProduct({ code, ...product }) : null;
+  if (!product || !parsed) return null;
+  const text = typeof product.ingredients_text === "string" ? product.ingredients_text.trim() : "";
+  return {
+    summary: { ...parsed, confidence: 1, matchedBy: "barcode" },
+    ingredientsText: text.length >= 3 ? text.slice(0, 4000) : null,
+  };
 }

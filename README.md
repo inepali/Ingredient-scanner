@@ -68,3 +68,7 @@ The Social tab holds the post copy and, once an account is connected, a **Post**
 - The 60-day token renews itself when you post.
 
 Posts show "processing" until the platform finishes, then flip to posted. A video is never posted twice to the same platform unless you click "Post again". None of the platform calls could be run from the build sandbox; the first real post is the test.
+
+## Barcode instead of a label photo
+
+On the new-scan page (and the phone upload page) use **Scan the barcode instead**: the camera reads the code (Chrome/Edge/Android; iPhone Safari can't yet, so type the digits under the bars), the product and its ingredient list come from Open Food Facts, and **Analyze product** scores that list the same way as a photo. If the product isn't on Open Food Facts or has no ingredient list, photograph the label instead. A label photo, if you add one, takes priority over the barcode list.

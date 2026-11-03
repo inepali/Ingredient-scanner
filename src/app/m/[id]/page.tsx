@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import MediaUploader from "@/components/MediaUploader";
+import BarcodeEntry from "@/components/BarcodeEntry";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ export default async function PhoneUploadPage({ params }: { params: Promise<{ id
         <h1 className="text-2xl font-semibold">Add photos</h1>
         <p className="text-neutral-600">Photos appear on your computer automatically. Keep this page open.</p>
       </header>
+      <BarcodeEntry scanId={id} />
       <MediaUploader scanId={id} />
     </div>
   );

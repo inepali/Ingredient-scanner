@@ -94,3 +94,13 @@ test("parseScript keeps a valid photo number and drops bad ones", () => {
   assert.equal(out.scenes[1].photo, undefined);
   assert.equal(out.scenes[2].photo, undefined);
 });
+
+import { isValidBarcode } from "./openfoodfacts.ts";
+test("barcode validation checks length and GS1 check digit", () => {
+  assert.equal(isValidBarcode("5449000000996"), true); // EAN-13
+  assert.equal(isValidBarcode("036000291452"), true); // UPC-A
+  assert.equal(isValidBarcode("96385074"), true); // EAN-8
+  assert.equal(isValidBarcode("5449000000997"), false); // bad check digit
+  assert.equal(isValidBarcode("12345"), false);
+  assert.equal(isValidBarcode("abc"), false);
+});

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { analyzeLabel } from "@/lib/analyze";
+import { analyzeIngredientText, analyzeLabel } from "@/lib/analyze";
 import { getMedia } from "@/lib/storage";
 import { applyCaps, bandFor, normalizeName, overallScore } from "@/lib/scoring";
-import { blendScores, externalScore, lookupProduct } from "@/lib/openfoodfacts";
+import { blendScores, externalScore, fetchByBarcode, lookupProduct } from "@/lib/openfoodfacts";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -13,7 +13,7 @@ type RefRow = { id: string; canonical_name: string; aliases: string[] | null; sc
 async function handle(id: string) {
   const db = supabase();
 
-  const { data: scan } = await db.from("scans").select("id, status").eq("id", id).maybeSingle();
+  const { data: scan } = await db.from("scans").select("id, status, off_code, product_name").eq("id", id).maybeSingle();
   if (!scan) return NextResponse.json({ error: "Scan not found." }, { status: 404 });
   if (scan.status === "analyzed") return NextResponse.json({ id });
 
@@ -25,8 +25,9 @@ async function handle(id: string) {
     .order("sort_order", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (!label) {
-    return NextResponse.json({ error: "Upload the ingredient label photo first." }, { status: 400 });
+  // No photo is fine when a barcode was scanned: the ingredient list comes from Open Food Facts.
+  if (!label && !scan.off_code) {
+    return NextResponse.json({ error: "Upload the ingredient label photo or scan the barcode first." }, { status: 400 });
   }
 
   await db.from("scans").update({ status: "analyzing" }).eq("id", id);
@@ -43,16 +44,28 @@ async function handle(id: string) {
   };
 
   try {
-    const bytes = await getMedia("images", label.storage_path);
-    const mediaType = label.storage_path.endsWith(".png")
-      ? "image/png"
-      : label.storage_path.endsWith(".webp")
-        ? "image/webp"
-        : "image/jpeg";
-
-    const analysis = await analyzeLabel(bytes, mediaType);
-    if (!analysis.legible) {
-      return fail("Couldn't read an ingredient list in that photo. Retake it closer, flat and well lit.", 422);
+    let analysis;
+    if (label) {
+      const bytes = await getMedia("images", label.storage_path);
+      const mediaType = label.storage_path.endsWith(".png")
+        ? "image/png"
+        : label.storage_path.endsWith(".webp")
+          ? "image/webp"
+          : "image/jpeg";
+      analysis = await analyzeLabel(bytes, mediaType);
+      if (!analysis.legible) {
+        return fail("Couldn't read an ingredient list in that photo. Retake it closer, flat and well lit.", 422);
+      }
+    } else {
+      const found = await fetchByBarcode(scan.off_code as string);
+      if (!found?.ingredientsText) {
+        return fail("Open Food Facts has no ingredient list for that barcode. Photograph the label instead.", 422);
+      }
+      analysis = await analyzeIngredientText(found.ingredientsText, {
+        name: (scan.product_name as string | null) ?? found.summary.name,
+        barcode: scan.off_code as string,
+      });
+      if (!analysis.legible) return fail("Couldn't make sense of that product's ingredient list. Photograph the label instead.", 422);
     }
 
     // Prefer fixed reference scores so the same ingredient always scores the same.
