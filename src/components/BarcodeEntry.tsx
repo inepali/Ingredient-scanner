@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type Found = { barcode: string; name: string | null; brands: string | null };
+type Found = { barcode: string; name: string | null; brands: string | null; ingredients: string | null };
 
 // Minimal typing for the browser's built-in barcode reader (Chrome / Edge / Android).
 type Detector = { detect(src: CanvasImageSource): Promise<{ rawValue: string }[]> };
@@ -29,9 +29,9 @@ export default function BarcodeEntry({ scanId, onFound }: { scanId: string; onFo
     const check = () =>
       fetch(`/api/scans/${scanId}/barcode`)
         .then((r) => r.json())
-        .then((d: { barcode: string | null; name: string | null }) => {
+        .then((d: { barcode: string | null; name: string | null; ingredients: string | null }) => {
           if (d.barcode) {
-            const f = { barcode: d.barcode, name: d.name, brands: null };
+            const f = { barcode: d.barcode, name: d.name, brands: null, ingredients: d.ingredients };
             setFound(f);
             onFound?.(f);
           }
@@ -62,7 +62,7 @@ export default function BarcodeEntry({ scanId, onFound }: { scanId: string; onFo
         });
         const data = (await res.json().catch(() => ({}))) as Partial<Found> & { error?: string };
         if (!res.ok) throw new Error(data.error ?? "Lookup failed.");
-        const f = { barcode: data.barcode ?? value, name: data.name ?? null, brands: data.brands ?? null };
+        const f = { barcode: data.barcode ?? value, name: data.name ?? null, brands: data.brands ?? null, ingredients: data.ingredients ?? null };
         setFound(f);
         onFound?.(f);
       } catch (e) {
@@ -162,6 +162,13 @@ export default function BarcodeEntry({ scanId, onFound }: { scanId: string; onFo
           Found {found.name ? <strong>{found.name}</strong> : "the product"}
           {found.brands ? ` (${found.brands.split(",")[0]})` : ""}, barcode {found.barcode}. Ready to analyze.
         </p>
+      )}
+      {found?.ingredients && (
+        <div className="space-y-1 rounded-md bg-neutral-50 p-3 text-sm">
+          <p className="text-xs font-medium text-neutral-500">Ingredients from Open Food Facts</p>
+          <p className="text-neutral-700">{found.ingredients}</p>
+          <p className="text-xs text-neutral-400">Crowd-sourced, so check it against the pack if something looks off.</p>
+        </div>
       )}
       {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     </section>

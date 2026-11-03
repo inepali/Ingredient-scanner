@@ -29,15 +29,15 @@ export const POST = handler(async (req, ctx) => {
   const name = found.summary.name ? [found.summary.brands?.split(",")[0]?.trim(), found.summary.name].filter(Boolean).join(" ") : null;
   const { error } = await db
     .from("scans")
-    .update({ off_code: code, ...(name && !scan.product_name ? { product_name: name } : {}) })
+    .update({ off_code: code, off_ingredients: found.ingredientsText, ...(name && !scan.product_name ? { product_name: name } : {}) })
     .eq("id", id);
   if (error) throw new Error(error.message);
-  return json({ barcode: code, name: found.summary.name, brands: found.summary.brands });
+  return json({ barcode: code, name: found.summary.name, brands: found.summary.brands, ingredients: found.ingredientsText });
 });
 
 // The barcode already saved on this scan (the phone page and the desktop page share it).
 export const GET = handler(async (_req, ctx) => {
   const id = await paramId(ctx);
-  const { data } = await supabase().from("scans").select("off_code, product_name").eq("id", id).maybeSingle();
-  return json({ barcode: data?.off_code ?? null, name: data?.product_name ?? null });
+  const { data } = await supabase().from("scans").select("off_code, product_name, off_ingredients").eq("id", id).maybeSingle();
+  return json({ barcode: data?.off_code ?? null, name: data?.product_name ?? null, ingredients: data?.off_ingredients ?? null });
 });

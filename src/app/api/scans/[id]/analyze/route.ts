@@ -13,7 +13,7 @@ type RefRow = { id: string; canonical_name: string; aliases: string[] | null; sc
 async function handle(id: string) {
   const db = supabase();
 
-  const { data: scan } = await db.from("scans").select("id, status, off_code, product_name").eq("id", id).maybeSingle();
+  const { data: scan } = await db.from("scans").select("id, status, off_code, off_ingredients, product_name").eq("id", id).maybeSingle();
   if (!scan) return NextResponse.json({ error: "Scan not found." }, { status: 404 });
   if (scan.status === "analyzed") return NextResponse.json({ id });
 
@@ -57,7 +57,9 @@ async function handle(id: string) {
         return fail("Couldn't read an ingredient list in that photo. Retake it closer, flat and well lit.", 422);
       }
     } else {
-      const found = await fetchByBarcode(scan.off_code as string);
+      // Use the list saved when the barcode was scanned; fetch again only for older scans.
+      const saved = scan.off_ingredients as string | null;
+      const found = saved ? { ingredientsText: saved, summary: { name: null as string | null } } : await fetchByBarcode(scan.off_code as string);
       if (!found?.ingredientsText) {
         return fail("Open Food Facts has no ingredient list for that barcode. Photograph the label instead.", 422);
       }
