@@ -203,3 +203,11 @@ test("parseDelivery falls back to natural", () => {
   assert.equal(parseDelivery("loud"), "natural");
   assert.equal(parseDelivery(null), "natural");
 });
+
+test("script prompt asks for retention hooks at 15s, 35s and the end", () => {
+  const p = buildPrompt({ productName: "Oat Bar", overall: 52, allergens: [], ingredients: [{ name: "Oats", score: 95, reason: null }] });
+  assert.match(p, /Hook at about 0:15/);
+  assert.match(p, /Hook at about 0:35/);
+  assert.match(p, /Closing hook/);
+  assert.match(p, /final question/);
+});
