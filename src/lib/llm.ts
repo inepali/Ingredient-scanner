@@ -2,7 +2,7 @@
 // (Label photo analysis lives in analyze.ts.)
 
 type GeminiResponse = { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-type AnthropicResponse = { content?: { type: string; text?: string }[] };
+type AnthropicResponse = { content?: { type: string; text?: string }[]; stop_reason?: string };
 
 export type LlmImage = { data: Buffer; mediaType: string };
 
@@ -55,7 +55,7 @@ export async function generateText(prompt: string, images: LlmImage[] = []): Pro
     headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({
       model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5",
-      max_tokens: 4000,
+      max_tokens: 16000,
       messages: [
         {
           role: "user",
@@ -72,8 +72,13 @@ export async function generateText(prompt: string, images: LlmImage[] = []): Pro
   });
   if (!res.ok) throw new Error(`Anthropic API ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const body = (await res.json()) as AnthropicResponse;
-  return (body.content ?? [])
+  const text = (body.content ?? [])
     .filter((b) => b.type === "text" && typeof b.text === "string")
     .map((b) => b.text)
     .join("");
+  if (!text.trim()) {
+    const blocks = (body.content ?? []).map((b) => b.type).join(", ") || "none";
+    throw new Error(`Claude returned no text (stop reason: ${body.stop_reason ?? "unknown"}; content blocks: ${blocks}). Try again.`);
+  }
+  return text;
 }
