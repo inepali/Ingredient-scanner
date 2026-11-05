@@ -2,8 +2,14 @@ import { supabase } from "@/lib/supabase";
 import { HttpError, handler, json, paramId } from "@/lib/http";
 import { getMedia, mediaUrl } from "@/lib/storage";
 import { liveToken, requireGuard } from "@/lib/social-accounts";
+import { withPublicLink } from "@/lib/public-link";
 import {
   TIKTOK_PRIVACY,
+  YOUTUBE_PRIVACY,
+  type YouTubePrivacy,
+  youtubeMetadata,
+  youtubeUpload,
+  youtubeUrl,
   buildCaption,
   instagramCreateReel,
   isPlatform,
@@ -15,7 +21,7 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 // Sends the final video and your saved copy to a connected account.
-// TikTok: uploads the file. Instagram: gives it a short-lived link to fetch the Reel from.
+// TikTok and YouTube: upload the file. Instagram: gives it a short-lived link to fetch the Reel from.
 // Either way the post is "processing" until the platform finishes; the page then polls /api/social/posts/[id].
 export const POST = handler(async (req, ctx) => {
   requireGuard();
@@ -36,13 +42,22 @@ export const POST = handler(async (req, ctx) => {
   const videoPath = video?.video_path as string | undefined;
   if (!videoPath) throw new HttpError("Render the final video first.");
 
-  const { data: copy } = await db.from("social_copy").select("title, description, hashtags").eq("scan_id", id).eq("platform", platform).maybeSingle();
+  // YouTube has no copy of its own: it reuses the Instagram text (longer), else TikTok's.
+  const { data: copies } = await db.from("social_copy").select("platform, title, description, hashtags").eq("scan_id", id);
+  const copy =
+    platform === "youtube"
+      ? (copies ?? []).find((c) => c.platform === "instagram") ?? (copies ?? []).find((c) => c.platform === "tiktok")
+      : (copies ?? []).find((c) => c.platform === platform);
   if (!copy) throw new HttpError("Generate the social copy first.");
-  // A public report page gets linked from the caption.
+  // A public report page is linked right after the "not medical advice" line of the description.
   const { data: scan } = await db.from("scans").select("is_public").eq("id", id).maybeSingle();
-  const link = scan?.is_public ? `\n\nFull ingredient breakdown: ${(process.env.APP_URL || new URL(req.url).origin).replace(/\/$/, "")}/p/${id}` : "";
-  const caption =
-    buildCaption({ title: copy.title ?? "", description: copy.description ?? "", hashtags: copy.hashtags ?? [] }, 2200 - link.length) + link;
+  const link = scan?.is_public ? `${(process.env.APP_URL || new URL(req.url).origin).replace(/\/$/, "")}/p/${id}` : null;
+  const parts = {
+    title: copy.title ?? "",
+    description: withPublicLink(copy.description ?? "", link),
+    hashtags: copy.hashtags ?? [],
+  };
+  const caption = buildCaption(parts);
 
   // One post per video per platform unless you explicitly post again.
   const { data: existing } = await db
@@ -64,12 +79,19 @@ export const POST = handler(async (req, ctx) => {
   const { token, externalId } = await liveToken(platform);
   let remoteId: string;
   let privacy: string | null = null;
+  let permalink: string | null = null;
 
   if (platform === "tiktok") {
     privacy = body.privacy ?? "SELF_ONLY";
     if (!(TIKTOK_PRIVACY as readonly string[]).includes(privacy)) throw new HttpError("Unknown privacy setting.");
     const file = await getMedia("videos", videoPath);
     remoteId = (await tiktokPost(token, file, caption, privacy as TikTokPrivacy)).publishId;
+  } else if (platform === "youtube") {
+    privacy = body.privacy ?? "private";
+    if (!(YOUTUBE_PRIVACY as readonly string[]).includes(privacy)) throw new HttpError("Unknown privacy setting.");
+    const file = await getMedia("videos", videoPath);
+    remoteId = await youtubeUpload(token, file, youtubeMetadata(parts, privacy as YouTubePrivacy));
+    permalink = youtubeUrl(remoteId);
   } else {
     if (!externalId) throw new HttpError("Reconnect Instagram (account id missing).");
     // Instagram downloads the file itself, possibly several times, so keep the link alive for 2 hours.
@@ -79,8 +101,17 @@ export const POST = handler(async (req, ctx) => {
 
   const { data: row, error } = await db
     .from("social_posts")
-    .insert({ scan_id: id, platform, video_path: videoPath, remote_id: remoteId, privacy, caption })
-    .select("id, status, platform")
+    .insert({
+      scan_id: id,
+      platform,
+      video_path: videoPath,
+      remote_id: remoteId,
+      privacy,
+      caption,
+      // YouTube finishes the upload before answering; the others are checked afterwards.
+      ...(platform === "youtube" ? { status: "published", permalink } : {}),
+    })
+    .select("id, status, platform, permalink")
     .single();
   if (error) throw new Error(error.message);
   return json(row);

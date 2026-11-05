@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { DEFAULT_DELIVERY, DELIVERIES, type Delivery } from "@/lib/delivery";
+import { withPublicLink } from "@/lib/public-link";
 import { MAX_UPLOADS, MAX_UPLOAD_BYTES, videoTypeFor } from "@/lib/uploads";
 import { CLIP_SECONDS, PRICE_PER_SECOND, estimateCostUsd, type Resolution } from "@/lib/pricing";
 
@@ -40,7 +41,7 @@ export type StudioCopy = {
 
 export type StudioPost = {
   id: string;
-  platform: "tiktok" | "instagram";
+  platform: "tiktok" | "instagram" | "youtube";
   status: "processing" | "published" | "failed";
   permalink: string | null;
   error: string | null;
@@ -51,7 +52,7 @@ export type StudioSocial = {
   /** APP_PASSWORD is set; connecting and posting are blocked without it. */
   guarded: boolean;
   isPublic: boolean;
-  accounts: { platform: "tiktok" | "instagram"; name: string | null; expired: boolean }[];
+  accounts: { platform: "tiktok" | "instagram" | "youtube"; name: string | null; expired: boolean }[];
   posts: StudioPost[];
 };
 
@@ -167,6 +168,7 @@ export default function ScanWorkspace(props: StudioProps) {
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [isPublic, setIsPublic] = useState(social.isPublic);
   const [origin, setOrigin] = useState("");
+  const publicUrl = isPublic && origin ? `${origin}/p/${scanId}` : null;
   useEffect(() => setOrigin(window.location.origin), []);
   useEffect(() => setIsPublic(social.isPublic), [social.isPublic]);
 
@@ -210,6 +212,14 @@ export default function ScanWorkspace(props: StudioProps) {
   }
 
   const [privacy, setPrivacy] = useState("SELF_ONLY");
+  const [ytPrivacy, setYtPrivacy] = useState("private");
+  const [copied, setCopied] = useState<string | null>(null);
+  function copyText(key: string, text: string) {
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(key);
+      setTimeout(() => setCopied((cur) => (cur === key ? null : cur)), 2000);
+    });
+  }
   const [posts, setPosts] = useState<StudioPost[]>(social.posts);
   useEffect(() => setPosts(social.posts), [social.posts]);
 
@@ -805,14 +815,11 @@ export default function ScanWorkspace(props: StudioProps) {
               <div className="flex items-center justify-between">
                 <strong className="capitalize">{c.platform}</strong>
                 <button
-                  className="text-xs underline"
-                  onClick={() =>
-                    void navigator.clipboard
-                      .writeText(`${d.title}\n\n${d.description}\n\n${d.tags}`)
-                      .then(() => setNotice(`${c.platform} copy copied.`))
-                  }
+                  className="rounded-md border bg-white px-3 py-1 text-xs font-medium"
+                  onClick={() => copyText(c.platform, `${d.title}\n\n${withPublicLink(d.description, publicUrl)}\n\n${d.tags}`)}
+                  aria-live="polite"
                 >
-                  Copy all
+                  {copied === c.platform ? "Copied ✓" : "Copy all"}
                 </button>
               </div>
               <label className="block space-y-1">
@@ -832,6 +839,11 @@ export default function ScanWorkspace(props: StudioProps) {
                   className="w-full rounded-md border bg-white px-2 py-1.5"
                 />
               </label>
+              {publicUrl && (
+                <p className="text-xs text-neutral-500">
+                  Link added after the &quot;not medical advice&quot; line when you post or copy: <span className="break-all">{publicUrl}</span>
+                </p>
+              )}
               <label className="block space-y-1">
                 <span className="text-xs text-neutral-500">Hashtags ({tagCount})</span>
                 <textarea
@@ -886,11 +898,8 @@ export default function ScanWorkspace(props: StudioProps) {
               <a className="text-sm underline" href={`/p/${scanId}`} target="_blank" rel="noreferrer">
                 Open page
               </a>
-              <button
-                className="text-sm underline"
-                onClick={() => void navigator.clipboard.writeText(`${window.location.origin}/p/${scanId}`).then(() => setNotice("Link copied."))}
-              >
-                Copy link
+              <button className="rounded-md border bg-white px-3 py-1 text-sm font-medium" onClick={() => copyText("link", `${origin}/p/${scanId}`)} aria-live="polite">
+                {copied === "link" ? "Copied ✓" : "Copy link"}
               </button>
             </>
           )}
@@ -906,13 +915,13 @@ export default function ScanWorkspace(props: StudioProps) {
             Set an <code>APP_PASSWORD</code> environment variable first. Connected accounts can post as you, so this app needs a password before it allows connecting.
           </p>
         )}
-        {(["tiktok", "instagram"] as const).map((platform) => {
-          const label = platform === "tiktok" ? "TikTok" : "Instagram";
+        {(["instagram", "tiktok", "youtube"] as const).map((platform) => {
+          const label = platform === "tiktok" ? "TikTok" : platform === "instagram" ? "Instagram" : "YouTube";
           const acct = social.accounts.find((a) => a.platform === platform);
           const connected = Boolean(acct) && !acct?.expired;
           const platformPosts = posts.filter((p) => p.platform === platform);
           const latest = platformPosts[0];
-          const hasCopy = copy.some((c) => c.platform === platform);
+          const hasCopy = platform === "youtube" ? copy.length > 0 : copy.some((c) => c.platform === platform);
           const blocked = busy !== null || !videoUrl || !hasCopy;
           return (
             <div key={platform} className="space-y-2 rounded-md bg-neutral-50 p-3 text-sm">
@@ -966,18 +975,28 @@ export default function ScanWorkspace(props: StudioProps) {
                     onClick={() =>
                       run(`post-${platform}`, async () => {
                         const again = latest?.status === "published";
-                        const r = await call<{ id: string; status: StudioPost["status"] }>(`/api/scans/${scanId}/post`, {
+                        const r = await call<{ id: string; status: StudioPost["status"]; permalink?: string | null }>(`/api/scans/${scanId}/post`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ platform, privacy, again }),
+                          body: JSON.stringify({ platform, privacy: platform === "youtube" ? ytPrivacy : privacy, again }),
                         });
-                        setPosts((cur) => [{ id: r.id, platform, status: r.status, permalink: null, error: null, privacy: null }, ...cur]);
-                        return `Sent to ${label}. It's being processed; this page will update.`;
+                        setPosts((cur) => [{ id: r.id, platform, status: r.status, permalink: r.permalink ?? null, error: null, privacy: null }, ...cur]);
+                        return r.status === "published" ? `Posted to ${label}.` : `Sent to ${label}. It's being processed; this page will update.`;
                       })
                     }
                   >
                     {busy === `post-${platform}` ? "Sending…" : latest?.status === "published" ? `Post to ${label} again` : `Post to ${label}`}
                   </button>
+                  {platform === "youtube" && (
+                    <label className="block space-y-1">
+                      <span className="text-xs text-neutral-500">Who can see it</span>
+                      <select value={ytPrivacy} onChange={(e) => setYtPrivacy(e.target.value)} className="w-full rounded-md border bg-white px-2 py-1.5">
+                        <option value="private">Private (YouTube keeps new apps private until Google approves them)</option>
+                        <option value="unlisted">Unlisted</option>
+                        <option value="public">Public</option>
+                      </select>
+                    </label>
+                  )}
                   {!videoUrl && <p className="text-xs text-neutral-500">Render the final video first.</p>}
                   {videoUrl && !hasCopy && <p className="text-xs text-neutral-500">Generate the social copy first.</p>}
                 </div>
@@ -995,6 +1014,7 @@ export default function ScanWorkspace(props: StudioProps) {
                         </a>
                       )}
                       {platform === "tiktok" && " Open TikTok to see it (private posts show on your profile)."}
+                      {platform === "youtube" && " YouTube may take a few minutes to finish processing."}
                     </>
                   )}
                   {latest.status === "failed" && `Failed: ${latest.error ?? "unknown error"}`}
@@ -1004,7 +1024,7 @@ export default function ScanWorkspace(props: StudioProps) {
           );
         })}
         <p className="text-xs text-neutral-500">
-          TikTok keeps posts from unapproved apps private. Instagram needs a Business or Creator account.
+          TikTok and YouTube keep posts from unapproved apps private. Instagram needs a Business or Creator account. YouTube uses your Instagram text for the title and description.
         </p>
       </section>
       </div>

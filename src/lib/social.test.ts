@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { decrypt, encrypt } from "./crypto.ts";
 import {
-  authUrl, buildCaption, mapInstagramStatus, mapTikTokStatus, needsRefresh, parseTikTokTokens, tiktokInitBody, apiMessage,
+  authUrl, buildCaption, parseGoogleTokens, youtubeMetadata, mapInstagramStatus, mapTikTokStatus, needsRefresh, parseTikTokTokens, tiktokInitBody, apiMessage,
 } from "./social-platforms.ts";
 
 const KEY = "a-long-test-secret-value";
@@ -82,4 +82,46 @@ test("error messages from both platforms", () => {
   assert.equal(apiMessage({ error: { code: "unaudited_client_can_only_post_to_private_accounts", message: "m" } }), "unaudited_client_can_only_post_to_private_accounts: m");
   assert.equal(apiMessage({ error: { code: "ok", message: "" } }), "");
   assert.equal(apiMessage({ error: { message: "Invalid token" } }), "Invalid token");
+});
+
+import { withPublicLink } from "./public-link.ts";
+
+test("public link goes right after the not-medical-advice line", () => {
+  const url = "https://x.app/p/abc";
+  assert.equal(
+    withPublicLink("Great label.\n\nAI-assisted analysis, not medical advice.", url),
+    "Great label.\n\nAI-assisted analysis, not medical advice.\n\nFull ingredient breakdown: https://x.app/p/abc",
+  );
+  assert.equal(
+    withPublicLink("Intro. Not medical advice. More text.", url),
+    "Intro. Not medical advice.\n\nFull ingredient breakdown: https://x.app/p/abc\n\nMore text.",
+  );
+  assert.equal(withPublicLink("No note here.", url), "No note here.\n\nFull ingredient breakdown: https://x.app/p/abc");
+  assert.equal(withPublicLink("Text", null), "Text");
+  const done = withPublicLink("Text, not medical advice.", url);
+  assert.equal(withPublicLink(done, url), done); // no double link
+});
+
+test("YouTube sign-in URL asks for offline access and upload scope", () => {
+  process.env.YOUTUBE_CLIENT_ID = "yid";
+  const u = new URL(authUrl("youtube", "https://x.app/api/social/youtube/callback", "st"));
+  assert.equal(u.origin, "https://accounts.google.com");
+  assert.equal(u.searchParams.get("client_id"), "yid");
+  assert.equal(u.searchParams.get("access_type"), "offline");
+  assert.equal(u.searchParams.get("prompt"), "consent");
+  assert.match(u.searchParams.get("scope")!, /youtube\.upload/);
+});
+
+test("Google tokens and YouTube metadata", () => {
+  const t = parseGoogleTokens({ access_token: "a", refresh_token: "r", expires_in: 3599 });
+  assert.equal(t.refreshToken, "r");
+  assert.ok(t.expiresAt!.getTime() > Date.now());
+  assert.throws(() => parseGoogleTokens({ error: "invalid_grant", error_description: "Bad code" }), /invalid_grant: Bad code/);
+
+  const m = youtubeMetadata({ title: "x".repeat(150), description: "Desc", hashtags: ["a", "#b"] }, "unlisted");
+  assert.equal(m.snippet.title.length, 100);
+  assert.equal(m.status.privacyStatus, "unlisted");
+  assert.equal(m.status.selfDeclaredMadeForKids, false);
+  assert.match(m.snippet.description, /#a #b #Shorts/);
+  assert.deepEqual(m.snippet.tags, ["a", "b"]);
 });

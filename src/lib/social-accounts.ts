@@ -2,7 +2,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { supabase } from "./supabase";
 import { decrypt, encrypt } from "./crypto";
 import { HttpError } from "./http";
-import { needsRefresh, refreshTokens, type Platform, type Tokens } from "./social-platforms";
+import { PLATFORM_LABEL, needsRefresh, refreshTokens, type Platform, type Tokens } from "./social-platforms";
 
 export type AccountRow = {
   platform: Platform;
@@ -71,7 +71,7 @@ export async function removeAccount(platform: Platform) {
 /** A valid access token plus the account's id; renews it first if it's about to expire. */
 export async function liveToken(platform: Platform): Promise<{ token: string; externalId: string | null; name: string | null }> {
   const acc = await getAccount(platform);
-  if (!acc) throw new HttpError(`${platform === "tiktok" ? "TikTok" : "Instagram"} isn't connected.`, 400);
+  if (!acc) throw new HttpError(`${PLATFORM_LABEL[platform]} isn't connected.`, 400);
   let token = decrypt(acc.access_token_enc);
   const expires = acc.expires_at ? new Date(acc.expires_at) : null;
   if (needsRefresh(platform, expires)) {

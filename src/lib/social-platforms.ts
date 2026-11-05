@@ -1,11 +1,12 @@
 // TikTok and Instagram OAuth + publishing calls. Endpoints follow the official
 // docs (TikTok Content Posting API, Instagram API with Instagram Login).
 
-export type Platform = "tiktok" | "instagram";
-export const PLATFORMS: Platform[] = ["tiktok", "instagram"];
+export type Platform = "tiktok" | "instagram" | "youtube";
+export const PLATFORMS: Platform[] = ["tiktok", "instagram", "youtube"];
+export const PLATFORM_LABEL: Record<Platform, string> = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
 
 export function isPlatform(v: unknown): v is Platform {
-  return v === "tiktok" || v === "instagram";
+  return v === "tiktok" || v === "instagram" || v === "youtube";
 }
 
 export const TIKTOK_PRIVACY = ["SELF_ONLY", "FOLLOWER_OF_CREATOR", "MUTUAL_FOLLOW_FRIENDS", "PUBLIC_TO_EVERYONE"] as const;
@@ -13,6 +14,9 @@ export type TikTokPrivacy = (typeof TIKTOK_PRIVACY)[number];
 
 const TIKTOK_SCOPES = "user.info.basic,video.publish";
 const IG_SCOPES = "instagram_business_basic,instagram_business_content_publish";
+const YT_SCOPES = "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly";
+export const YOUTUBE_PRIVACY = ["private", "unlisted", "public"] as const;
+export type YouTubePrivacy = (typeof YOUTUBE_PRIVACY)[number];
 const IG_VERSION = process.env.INSTAGRAM_API_VERSION ?? "v23.0";
 
 export type Tokens = {
@@ -45,6 +49,18 @@ export function authUrl(platform: Platform, redirect: string, state: string): st
       state,
     });
     return `https://www.tiktok.com/v2/auth/authorize/?${p}`;
+  }
+  if (platform === "youtube") {
+    const p = new URLSearchParams({
+      client_id: need("YOUTUBE_CLIENT_ID"),
+      redirect_uri: redirect,
+      response_type: "code",
+      scope: YT_SCOPES,
+      access_type: "offline", // so Google returns a refresh token
+      prompt: "consent",
+      state,
+    });
+    return `https://accounts.google.com/o/oauth2/v2/auth?${p}`;
   }
   const p = new URLSearchParams({
     client_id: need("INSTAGRAM_APP_ID"),
@@ -97,6 +113,29 @@ export function parseTikTokTokens(body: Record<string, unknown>): Tokens {
   };
 }
 
+export function parseGoogleTokens(body: Record<string, unknown>): Tokens {
+  if (typeof body.access_token !== "string") {
+    throw new Error(`Google didn't return a token: ${apiMessage(body) || JSON.stringify(body).slice(0, 200)}`);
+  }
+  return {
+    accessToken: body.access_token,
+    refreshToken: typeof body.refresh_token === "string" ? body.refresh_token : null,
+    expiresAt: inSeconds(body.expires_in),
+    refreshExpiresAt: null,
+    externalId: null,
+    scope: typeof body.scope === "string" ? body.scope : null,
+  };
+}
+
+async function googleToken(params: Record<string, string>): Promise<Tokens> {
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ client_id: need("YOUTUBE_CLIENT_ID"), client_secret: need("YOUTUBE_CLIENT_SECRET"), ...params }),
+  });
+  return parseGoogleTokens(await readJson(res, "Google sign-in"));
+}
+
 async function tiktokToken(params: Record<string, string>): Promise<Tokens> {
   const res = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
     method: "POST",
@@ -120,6 +159,27 @@ export async function exchangeCode(platform: Platform, code: string, redirect: s
       // the name is cosmetic
     }
     return { ...t, accountName: name };
+  }
+
+  if (platform === "youtube") {
+    const t = await googleToken({ code, grant_type: "authorization_code", redirect_uri: redirect });
+    if (!t.refreshToken) {
+      throw new Error("Google didn't return a refresh token. Remove this app at myaccount.google.com/permissions and connect again.");
+    }
+    let name: string | null = null;
+    let id: string | null = null;
+    try {
+      const res = await fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", {
+        headers: { Authorization: `Bearer ${t.accessToken}` },
+      });
+      const body = await readJson(res, "YouTube channel");
+      const item = (body.items as { id?: string; snippet?: { title?: string } }[] | undefined)?.[0];
+      name = item?.snippet?.title ?? null;
+      id = item?.id ?? null;
+    } catch {
+      // cosmetic
+    }
+    return { ...t, externalId: id, accountName: name };
   }
 
   // Instagram: short-lived token first, then swap it for a 60-day one.
@@ -174,13 +234,17 @@ export async function exchangeCode(platform: Platform, code: string, redirect: s
 export function needsRefresh(platform: Platform, expiresAt: Date | null, now = Date.now()): boolean {
   if (!expiresAt) return false;
   const left = expiresAt.getTime() - now;
-  return left < (platform === "tiktok" ? 10 * 60_000 : 7 * 86_400_000);
+  return left < (platform === "instagram" ? 7 * 86_400_000 : 10 * 60_000);
 }
 
 export async function refreshTokens(platform: Platform, current: { accessToken: string; refreshToken: string | null }): Promise<Tokens> {
   if (platform === "tiktok") {
     if (!current.refreshToken) throw new Error("TikTok session expired. Reconnect TikTok.");
     return tiktokToken({ grant_type: "refresh_token", refresh_token: current.refreshToken });
+  }
+  if (platform === "youtube") {
+    if (!current.refreshToken) throw new Error("YouTube session expired. Reconnect YouTube.");
+    return googleToken({ grant_type: "refresh_token", refresh_token: current.refreshToken });
   }
   const res = await fetch(
     `https://graph.instagram.com/refresh_access_token?${new URLSearchParams({ grant_type: "ig_refresh_token", access_token: current.accessToken })}`,
@@ -325,3 +389,67 @@ export async function instagramAdvance(token: string, igId: string, containerId:
   }
   return { status: "published", permalink };
 }
+
+// ---------- YouTube publishing ----------
+
+/** YouTube title (max 100), description (max 5000) and tags (max 500 characters in total). */
+export function youtubeMetadata(
+  c: { title: string; description: string; hashtags: string[] },
+  privacy: YouTubePrivacy,
+) {
+  const title = (c.title.trim() || "Ingredient check").slice(0, 100);
+  const tags = c.hashtags.map((h) => `#${h.replace(/^#/, "")}`);
+  if (!tags.some((t) => t.toLowerCase() === "#shorts")) tags.push("#Shorts");
+  const description = [c.description.trim(), tags.join(" ")].filter(Boolean).join("\n\n").slice(0, 5000);
+  const keywords: string[] = [];
+  let used = 0;
+  for (const h of c.hashtags) {
+    const k = h.replace(/^#/, "");
+    if (!k || used + k.length + 1 > 450) continue;
+    keywords.push(k);
+    used += k.length + 1;
+  }
+  return {
+    snippet: { title, description, tags: keywords, categoryId: "26" /* Howto & Style */ },
+    status: { privacyStatus: privacy, selfDeclaredMadeForKids: false },
+  };
+}
+
+/** Uploads the video with YouTube's resumable protocol (one PUT). Returns the new video id. */
+export async function youtubeUpload(token: string, video: Buffer, meta: ReturnType<typeof youtubeMetadata>): Promise<string> {
+  const init = await fetch("https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json; charset=UTF-8",
+      "X-Upload-Content-Length": String(video.length),
+      "X-Upload-Content-Type": "video/mp4",
+    },
+    body: JSON.stringify(meta),
+  });
+  if (!init.ok) {
+    const text = await init.text();
+    let body: Record<string, unknown> = {};
+    try {
+      body = JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      // not JSON
+    }
+    const msg = apiMessage(body) || text.slice(0, 200);
+    if (/quota/i.test(msg)) throw new Error("YouTube's daily upload quota is used up. Try again tomorrow.");
+    throw new Error(`YouTube upload start failed (${init.status}): ${msg}`);
+  }
+  const location = init.headers.get("location");
+  if (!location) throw new Error("YouTube didn't return an upload address.");
+
+  const put = await fetch(location, {
+    method: "PUT",
+    headers: { "Content-Type": "video/mp4", "Content-Length": String(video.length) },
+    body: new Uint8Array(video),
+  });
+  const body = await readJson(put, "YouTube upload");
+  if (typeof body.id !== "string") throw new Error("YouTube accepted the file but returned no video id.");
+  return body.id;
+}
+
+export const youtubeUrl = (videoId: string) => `https://www.youtube.com/shorts/${videoId}`;

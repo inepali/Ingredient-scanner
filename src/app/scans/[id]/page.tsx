@@ -313,7 +313,7 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
         social={{
           guarded: Boolean(process.env.APP_PASSWORD),
           isPublic: Boolean(scan.is_public),
-          accounts: ((acctData ?? []) as { platform: "tiktok" | "instagram"; account_name: string | null; expires_at: string | null }[]).map((a) => ({
+          accounts: ((acctData ?? []) as { platform: "tiktok" | "instagram" | "youtube"; account_name: string | null; expires_at: string | null }[]).map((a) => ({
             platform: a.platform,
             name: a.account_name,
             expired: a.expires_at ? new Date(a.expires_at).getTime() < Date.now() : false,
