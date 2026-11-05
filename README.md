@@ -95,7 +95,7 @@ When you upload videos, **they are the video**: joined whole, in the order you s
 
 ## Public report page
 
-Social Copy tab → **Public page** → Make public. The page `/p/<scan id>` shows the score ring and the full ingredient breakdown, works without the password, and is not indexed by search engines. It's off by default; turning it off makes the link return "not found". When a scan is public, the link is added to the caption when you post from the Social tab.
+Public Page tab → **Make public** → Make public. The page `/p/<scan id>` shows the score ring and the full ingredient breakdown, works without the password, and is not indexed by search engines. It's off by default; turning it off makes the link return "not found". When a scan is public, the link is added to the caption when you post from the Social tab.
 
 The video's score is now the same ring as the page header (coloured arc from the top, number in the middle).
 

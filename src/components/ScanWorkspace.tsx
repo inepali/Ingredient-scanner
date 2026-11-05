@@ -104,7 +104,7 @@ function postJson<T>(url: string, body: unknown, method = "POST"): Promise<T> {
   });
 }
 
-type TabId = "ingredients" | "script" | "voice" | "animation" | "video" | "social" | "post";
+type TabId = "ingredients" | "script" | "voice" | "animation" | "video" | "social" | "public" | "post";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "ingredients", label: "Ingredients" },
@@ -113,6 +113,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "animation", label: "Animation" },
   { id: "video", label: "Final Video" },
   { id: "social", label: "Social Copy" },
+  { id: "public", label: "Public Page" },
   { id: "post", label: "Connect & Post" },
 ];
 
@@ -353,6 +354,7 @@ export default function ScanWorkspace(props: StudioProps) {
     animation: pendingJobs.length > 0 ? "busy" : clips.length > 0 ? "done" : null,
     video: renderJobId !== null ? "busy" : videoUrl ? "done" : null,
     social: copy.length > 0 ? "done" : null,
+    public: isPublic ? "done" : null,
     post: posts.some((p) => p.status === "processing") ? "busy" : posts.some((p) => p.status === "published") ? "done" : null,
   };
 
@@ -932,6 +934,15 @@ export default function ScanWorkspace(props: StudioProps) {
         })}
       </section>
 
+      {copy.length > 0 && (
+        <div className="flex justify-end">
+          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => selectTab("public", true)}>
+            Next: Public Page →
+          </button>
+        </div>
+      )}
+      </div>
+      <div role="tabpanel" id="panel-public" aria-labelledby="tab-public" hidden={tab !== "public"} className="space-y-4 pt-4">
       <section className={card}>
         <h3 className="font-medium">Public page</h3>
         <p className="text-sm text-neutral-500">
@@ -966,7 +977,7 @@ export default function ScanWorkspace(props: StudioProps) {
         {isPublic && <p className="text-xs text-neutral-500">When you post from here, the link is added to the caption automatically.</p>}
       </section>
 
-      {copy.length > 0 && (
+      {(
         <div className="flex justify-end">
           <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => selectTab("post", true)}>
             Next: Connect &amp; Post →

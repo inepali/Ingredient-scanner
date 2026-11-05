@@ -24,7 +24,7 @@ export async function finishConnect(req: Request, platform: Platform) {
   const back = (msg: string, ok = false) => {
     const scan = req.headers.get("cookie")?.match(/social_return=([0-9a-f-]{36})/i)?.[1];
     const to = new URL(scan ? `/scans/${scan}` : "/", url.origin);
-    to.hash = "social";
+    to.hash = "post";
     to.searchParams.set(ok ? "social_ok" : "social_error", msg);
     const res = NextResponse.redirect(to);
     res.cookies.delete(stateCookie(platform));
