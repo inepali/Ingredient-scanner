@@ -25,6 +25,11 @@ export default function DeleteScanButton({
       const res = await fetch(`/api/scans/${scanId}`, { method: "DELETE" });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Could not delete.");
+      try {
+        if (localStorage.getItem("last-scan") === scanId) localStorage.removeItem("last-scan");
+      } catch {
+        // fine
+      }
       if (after === "history") router.push("/history");
       else router.refresh();
     } catch (e) {

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AppShell from "@/components/AppShell";
 import { supabase } from "@/lib/supabase";
 import DeleteScanButton from "@/components/DeleteScanButton";
 import { bandFor, type Band } from "@/lib/scoring";
@@ -43,11 +44,8 @@ export default async function HistoryPage() {
     : null;
 
   return (
+    <AppShell>
     <div className="space-y-6">
-      <Link href="/" className="text-sm text-neutral-500 underline">
-        ← New scan
-      </Link>
-
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold">Scan history</h1>
         {average !== null && (
@@ -88,5 +86,6 @@ export default async function HistoryPage() {
         </ul>
       )}
     </div>
+    </AppShell>
   );
 }

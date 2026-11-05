@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import Link from "next/link";
+import AppNav from "./AppNav";
 import { useRouter } from "next/navigation";
 import { DEFAULT_DELIVERY, DELIVERIES, type Delivery } from "@/lib/delivery";
 import { withPublicLink } from "@/lib/public-link";
@@ -370,14 +370,7 @@ export default function ScanWorkspace(props: StudioProps) {
 
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-8">
       <nav aria-label="Scan steps" className="md:sticky md:top-6 md:w-52 md:shrink-0">
-        <div className="mb-2 flex gap-4 text-sm md:mb-3 md:flex-col md:gap-0.5 md:border-b md:pb-3">
-          <Link href="/" className="rounded-lg px-1 py-1 text-neutral-600 hover:text-neutral-900 md:px-3 md:py-2 md:hover:bg-neutral-100">
-            + New scan
-          </Link>
-          <Link href="/history" className="rounded-lg px-1 py-1 text-neutral-600 hover:text-neutral-900 md:px-3 md:py-2 md:hover:bg-neutral-100">
-            History
-          </Link>
-        </div>
+        <AppNav scanId={scanId} />
         <div
           role="tablist"
           aria-orientation="vertical"
