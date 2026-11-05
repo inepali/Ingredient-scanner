@@ -6,8 +6,8 @@ import { getMedia, putMedia } from "./storage";
 import { latestVideo } from "./queries";
 import { parseScript } from "./script";
 import { buildAss } from "./captions";
-import { assignSources, planSegments, type PhotoRef } from "./timeline";
-import { RING_CENTER, RING_SIZE, buildFfmpegArgs, runFfmpeg, type RenderProgress } from "./render";
+import { assignSources, planFootage, planSegments, type PhotoRef } from "./timeline";
+import { RING_CENTER, RING_SIZE, buildFfmpegArgs, probeDuration, runFfmpeg, type RenderProgress, type RenderSegment } from "./render";
 import { ringPng } from "./ring";
 import { BAND_HEX, bandFor } from "./scoring";
 import type { MediaRow } from "./db-types";
@@ -54,13 +54,14 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
     const media = (mediaData ?? []) as MediaRow[];
     const photos = media.filter((m) => m.kind === "product_image");
     const clips = media.filter((m) => m.kind === "clip");
-    // Videos you uploaded yourself (no source photo) join the cut alongside the animated photos.
+    // Videos you uploaded yourself (no source photo). When there are any, they ARE the video: merged whole, in your order.
     const uploads = clips.filter((c) => !c.source_media_id);
     if (photos.length === 0 && uploads.length === 0) throw new Error("Add a product photo or upload a product video first.");
 
     // Pull everything this render needs into the temp folder (0-10%).
     const refs: PhotoRef[] = [];
-    for (const [i, photo] of photos.entries()) {
+    const footageMode = uploads.length > 0;
+    for (const [i, photo] of footageMode ? [] : photos.entries()) {
       await report(`Downloading photos and clips (${i + 1} of ${photos.length})`, 1 + (8 * i) / photos.length, true);
       const photoFile = join(dir, `photo-${i + 1}.jpg`);
       await writeFile(photoFile, await getMedia("images", photo.storage_path));
@@ -73,16 +74,15 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
         clipFile = join(dir, `clip-${i + 1}${clipIsVideo ? ".mp4" : ".jpg"}`);
         await writeFile(clipFile, await getMedia("videos", clip.storage_path));
       }
-      // With your own footage, plain still photos are left out; animated clips still count.
-      if (uploads.length > 0 && !clipFile) continue;
       refs.push({ number: i + 1, photoPath: photoFile, clipPath: clipFile, clipIsVideo });
     }
+    const uploadFiles: string[] = [];
     for (const [k, up] of uploads.entries()) {
       await report(`Downloading your videos (${k + 1} of ${uploads.length})`, 9, true);
       const ext = (/\.(mp4|mov|webm|m4v)$/i.exec(up.storage_path)?.[1] ?? "mp4").toLowerCase();
       const file = join(dir, `upload-${k + 1}.${ext}`);
       await writeFile(file, await getMedia("videos", up.storage_path));
-      refs.push({ number: photos.length + k + 1, photoPath: file, clipPath: file, clipIsVideo: true });
+      uploadFiles.push(file);
     }
     const audioFile = join(dir, video.audio_path.endsWith(".wav") ? "voice.wav" : "voice.mp3");
     await writeFile(audioFile, await getMedia("videos", video.audio_path));
@@ -91,7 +91,25 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
     const total = video.duration_s ?? words[words.length - 1]?.end ?? 0;
     if (!(total > 0)) throw new Error("The voiceover has no length. Regenerate the voice.");
 
-    const segments = assignSources(planSegments(script.scenes, words, total), refs);
+    let segments: RenderSegment[];
+    let outTotal = total;
+    if (footageMode) {
+      const lengths: number[] = [];
+      for (const [k, f] of uploadFiles.entries()) {
+        const d = await probeDuration(f);
+        if (d === null) throw new Error(`Couldn't read the length of uploaded video ${k + 1}. Try re-exporting it as MP4.`);
+        lengths.push(d);
+      }
+      const plan = planFootage(lengths, total);
+      outTotal = plan.total;
+      segments = plan.parts.map((p) => ({ kind: "video" as const, file: uploadFiles[p.index], duration: p.duration, speed: p.speed, fit: "blur" as const }));
+    } else {
+      segments = assignSources(planSegments(script.scenes, words, total), refs).map((s) => ({
+        kind: s.source.kind,
+        file: s.source.path,
+        duration: s.end - s.start,
+      }));
+    }
     if (segments.length === 0) throw new Error("Nothing to put on screen.");
 
     const assFile = join(dir, "captions.ass");
@@ -99,7 +117,7 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
       assFile,
       buildAss({
         words,
-        duration: total,
+        duration: outTotal,
         fontName: FONT_NAME,
         score: scan?.overall_score ?? null,
         ringCenter: RING_CENTER,
@@ -117,18 +135,19 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
     let progressError: unknown = null;
     await runFfmpeg(
       buildFfmpegArgs({
-        segments: segments.map((s) => ({ kind: s.source.kind, file: s.source.path, duration: s.end - s.start })),
+        segments,
+        audioSeconds: total,
         audioFile,
         assFile,
         fontsDir: process.env.FONTS_DIR ?? join(process.cwd(), "assets", "fonts"),
         outFile,
         ringFile,
-        total,
+        total: outTotal,
         preset: process.env.RENDER_PRESET || "veryfast",
       }),
       undefined,
       (seconds) => {
-        report("Rendering video", 10 + 80 * Math.min(1, seconds / total)).catch((e) => {
+        report("Rendering video", 10 + 80 * Math.min(1, seconds / outTotal)).catch((e) => {
           progressError = e;
         });
       },
@@ -143,7 +162,7 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
 
     await db
       .from("jobs")
-      .update({ status: "done", output: { stage: "Done", percent: 100, heartbeat: new Date().toISOString(), video_path: key, seconds: Math.round(total) } })
+      .update({ status: "done", output: { stage: "Done", percent: 100, heartbeat: new Date().toISOString(), video_path: key, seconds: Math.round(outTotal) } })
       .eq("id", jobId)
       .eq("status", "running");
   } catch (err) {

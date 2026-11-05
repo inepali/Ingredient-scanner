@@ -53,3 +53,30 @@ export const PUT = handler(async (req, ctx) => {
   if (error) throw new Error(error.message);
   return json({ id: data.id });
 });
+
+// Sets the order your videos play in: body { ids: [clip ids, first to last] }.
+export const PATCH = handler(async (req, ctx) => {
+  const id = await paramId(ctx);
+  const { ids } = (await req.json().catch(() => ({}))) as { ids?: unknown };
+  if (!Array.isArray(ids) || ids.some((x) => typeof x !== "string")) throw new HttpError("ids must be a list.");
+
+  const db = supabase();
+  const { data: rows } = await db
+    .from("scan_media")
+    .select("id, sort_order")
+    .eq("scan_id", id)
+    .eq("kind", "clip")
+    .is("source_media_id", null);
+  const current = rows ?? [];
+  const known = new Set(current.map((r) => r.id as string));
+  if (ids.length !== known.size || !ids.every((x) => known.has(x as string)) || new Set(ids).size !== ids.length) {
+    throw new HttpError("That list doesn't match this scan's videos. Reload and try again.", 409);
+  }
+  // Re-use the same sort slots so the videos keep their place relative to everything else.
+  const slots = current.map((r) => r.sort_order as number).sort((a, b) => a - b);
+  for (const [i, clipId] of (ids as string[]).entries()) {
+    const { error } = await db.from("scan_media").update({ sort_order: slots[i] }).eq("id", clipId).eq("scan_id", id);
+    if (error) throw new Error(error.message);
+  }
+  return json({ ok: true });
+});

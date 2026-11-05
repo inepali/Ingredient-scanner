@@ -88,7 +88,10 @@ Upload real footage (MP4, MOV, WebM, up to 150 MB, 6 per scan) on the Animation 
 ]
 ```
 
-Uploaded videos are cut into the final video with the photos and animated clips (looped or trimmed to fit each scene), under the voiceover. No AI credits are used.
+When you upload videos, **they are the video**: joined whole, in the order you set (← → arrows under each one), under the voiceover. Nothing is trimmed, and photos and AI clips are left out. Wide or square footage is shown in full over a blurred background instead of being cropped.
+- Footage **shorter** than the voiceover is slowed down evenly (never below half speed); if even half speed is too short, the sequence repeats from the first video until the voiceover is covered.
+- Footage **longer** than the voiceover plays in full, so the video runs a little past the voice (the audio is padded with silence).
+- The videos' own sound is replaced by the voiceover. No AI credits are used.
 
 ## Public report page
 

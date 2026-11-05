@@ -165,6 +165,15 @@ export default function ScanWorkspace(props: StudioProps) {
   const [progress, setProgress] = useState<{ stage?: string; percent?: number } | null>(props.renderProgress);
   const [now, setNow] = useState(() => Date.now());
   const [drafts, setDrafts] = useState<Record<string, { title: string; description: string; tags: string }>>({});
+  function moveUpload(index: number, delta: number) {
+    const ids = uploads.map((u) => u.id);
+    const to = index + delta;
+    if (to < 0 || to >= ids.length) return;
+    [ids[index], ids[to]] = [ids[to], ids[index]];
+    void run("reorder", async () => {
+      await postJson(`/api/scans/${scanId}/uploads`, { ids }, "PATCH");
+    });
+  }
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [isPublic, setIsPublic] = useState(social.isPublic);
   const [origin, setOrigin] = useState("");
@@ -642,8 +651,10 @@ export default function ScanWorkspace(props: StudioProps) {
       <section className={card}>
         <h3 className="font-medium">Or upload your own product video</h3>
         <p className="text-sm text-neutral-500">
-          Real footage of the product (MP4, MOV or WebM, up to {MAX_UPLOAD_BYTES / 1024 / 1024} MB). It&apos;s cut into the final video along with the
-          photos and clips, under the voiceover. No AI credits are used.
+          Real footage of the product (MP4, MOV or WebM, up to {MAX_UPLOAD_BYTES / 1024 / 1024} MB each). Your videos are joined whole, in the
+          order shown (use the arrows to change it), under the voiceover. Nothing is trimmed, and photos and AI clips aren&apos;t used. If your
+          footage is shorter than the voiceover it&apos;s slowed down (down to half speed), then repeated if needed. If it&apos;s longer, the video simply runs past the
+          voice. The videos&apos; own sound is replaced by the voiceover. No AI credits are used.
         </p>
         <label className={`inline-block cursor-pointer rounded-md border px-4 py-2 text-sm font-medium ${uploadPct !== null || uploads.length >= MAX_UPLOADS ? "pointer-events-none opacity-40" : ""}`}>
           {uploadPct !== null ? `Uploading… ${uploadPct}%` : "Choose video"}
@@ -666,11 +677,30 @@ export default function ScanWorkspace(props: StudioProps) {
         )}
         {uploads.length > 0 && (
           <div className="grid grid-cols-3 gap-2">
-            {uploads.map((u) => (
+            {uploads.map((u, idx) => (
               <figure key={u.id} className="space-y-1">
-                <div className="aspect-[9/16] overflow-hidden rounded-md bg-neutral-100">
-                  <video src={u.url} controls muted loop playsInline preload="metadata" className="h-full w-full object-cover" />
+                <div className="relative aspect-[9/16] overflow-hidden rounded-md bg-neutral-100">
+                  <video src={u.url} controls muted loop playsInline preload="metadata" className="h-full w-full object-contain" />
+                  <span className="absolute left-1 top-1 rounded-full bg-neutral-900 px-2 py-0.5 text-xs font-medium text-white">{idx + 1}</span>
                 </div>
+                <figcaption className="flex items-center justify-center gap-2">
+                  <button
+                    className="rounded border px-2 text-sm disabled:opacity-30"
+                    aria-label={`Move video ${idx + 1} earlier`}
+                    disabled={busy !== null || idx === 0}
+                    onClick={() => moveUpload(idx, -1)}
+                  >
+                    ←
+                  </button>
+                  <button
+                    className="rounded border px-2 text-sm disabled:opacity-30"
+                    aria-label={`Move video ${idx + 1} later`}
+                    disabled={busy !== null || idx === uploads.length - 1}
+                    onClick={() => moveUpload(idx, 1)}
+                  >
+                    →
+                  </button>
+                </figcaption>
                 <figcaption className="text-center">
                   <button
                     className="text-xs text-neutral-500 underline disabled:opacity-40"

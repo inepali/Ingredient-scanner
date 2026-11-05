@@ -86,3 +86,47 @@ export function assignSources(segments: Segment[], photos: PhotoRef[]): (Segment
     return { ...seg, source };
   });
 }
+
+// ---------- your own footage ----------
+
+export type FootagePart = { index: number; speed: number; duration: number };
+export type FootagePlan = { parts: FootagePart[]; total: number; mode: "as-is" | "slowed" | "slowed-and-repeated" };
+
+/** Slowest we go before repeating footage instead (half speed). */
+export const MIN_SPEED = 0.5;
+
+/**
+ * Lays your videos end to end in the order given, whole: nothing is trimmed.
+ * - Longer than the voiceover: played as they are; the video simply runs a
+ *   little past the narration.
+ * - Shorter: slowed down evenly (never below half speed) to fill the narration.
+ * - Still short at half speed: the sequence repeats from the first video until
+ *   the narration is covered; only the very last repeat is cut at the end.
+ */
+export function planFootage(durations: number[], audioSeconds: number): FootagePlan {
+  const clean = durations.map((d) => (Number.isFinite(d) && d > 0.1 ? d : 0.1));
+  const total = clean.reduce((a, b) => a + b, 0);
+  if (clean.length === 0 || !(audioSeconds > 0)) return { parts: [], total: 0, mode: "as-is" };
+
+  if (total >= audioSeconds) {
+    return { parts: clean.map((d, index) => ({ index, speed: 1, duration: d })), total, mode: "as-is" };
+  }
+
+  const stretch = audioSeconds / total; // how many times longer it must become
+  if (stretch <= 1 / MIN_SPEED) {
+    const speed = 1 / stretch;
+    return { parts: clean.map((d, index) => ({ index, speed, duration: d * stretch })), total: audioSeconds, mode: "slowed" };
+  }
+
+  const parts: FootagePart[] = [];
+  let filled = 0;
+  let i = 0;
+  while (filled < audioSeconds - 1e-6) {
+    const index = i % clean.length;
+    const duration = Math.min(clean[index] / MIN_SPEED, audioSeconds - filled);
+    parts.push({ index, speed: MIN_SPEED, duration });
+    filled += duration;
+    i++;
+  }
+  return { parts, total: audioSeconds, mode: "slowed-and-repeated" };
+}

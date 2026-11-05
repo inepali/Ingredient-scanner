@@ -39,7 +39,15 @@ export const RING_SIZE = 300;
 export const RING_TOP = 150;
 export const RING_CENTER = { x: WIDTH / 2, y: RING_TOP + RING_SIZE / 2 };
 
-export type RenderSegment = { kind: "video" | "image"; file: string; duration: number };
+export type RenderSegment = {
+  kind: "video" | "image";
+  file: string;
+  duration: number;
+  /** Playback speed for video (0.5 = half speed). Default 1. */
+  speed?: number;
+  /** "blur": show the whole frame, filling the sides with a blurred copy (nothing cropped). */
+  fit?: "fill" | "blur";
+};
 
 export type RenderOptions = {
   segments: RenderSegment[];
@@ -47,6 +55,8 @@ export type RenderOptions = {
   assFile: string;
   fontsDir: string;
   outFile: string;
+  /** Length of the voiceover; if the video is longer, the audio is padded with silence. */
+  audioSeconds?: number;
   /** PNG of the score ring, overlaid top-centre for the whole video. */
   ringFile?: string;
   total: number;
@@ -66,12 +76,24 @@ export function buildFfmpegArgs(o: RenderOptions): string[] {
     const d = seg.duration.toFixed(3);
     const frames = Math.ceil(seg.duration * FPS) + 2;
     if (seg.kind === "video") {
-      args.push("-stream_loop", "-1", "-t", (seg.duration + 0.2).toFixed(3), "-i", seg.file);
-      filters.push(
-        `[${i}:v]trim=duration=${d},setpts=PTS-STARTPTS,` +
-          `scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},` +
-          `fps=${FPS},setsar=1,format=yuv420p[v${i}]`,
-      );
+      const speed = seg.speed && seg.speed > 0 ? seg.speed : 1;
+      // Slowed footage needs less source than output: speed 0.5 stretches 5 s of source over 10 s.
+      args.push("-stream_loop", "-1", "-t", (seg.duration * speed + 0.2).toFixed(3), "-i", seg.file);
+      const timing = `${speed !== 1 ? `setpts=(PTS-STARTPTS)/${speed},` : ""}trim=duration=${d},setpts=PTS-STARTPTS`;
+      if (seg.fit === "blur") {
+        filters.push(
+          `[${i}:v]${timing},fps=${FPS},split[bg${i}][fg${i}];` +
+            `[bg${i}]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},boxblur=30:5[bgb${i}];` +
+            `[fg${i}]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=decrease[fgs${i}];` +
+            `[bgb${i}][fgs${i}]overlay=(W-w)/2:(H-h)/2,setsar=1,format=yuv420p[v${i}]`,
+        );
+      } else {
+        filters.push(
+          `[${i}:v]${timing},` +
+            `scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},` +
+            `fps=${FPS},setsar=1,format=yuv420p[v${i}]`,
+        );
+      }
     } else {
       args.push("-i", seg.file);
       // Alternate zoom in / zoom out so consecutive stills don't feel identical.
@@ -99,6 +121,7 @@ export function buildFfmpegArgs(o: RenderOptions): string[] {
     "-filter_complex", filters.join(";"),
     "-map", "[vout]",
     "-map", `${n}:a`,
+    ...(o.audioSeconds && o.total > o.audioSeconds + 0.05 ? ["-af", `apad=whole_dur=${o.total.toFixed(3)}`] : []),
     "-c:v", "libx264",
     "-preset", o.preset ?? "veryfast",
     "-crf", "22",
@@ -180,4 +203,16 @@ export async function runFfmpeg(
       code === 0 ? resolve() : reject(new Error(`ffmpeg failed (exit ${code}): ${err.trim().split("\n").slice(-4).join(" | ")}`)),
     );
   });
+}
+
+/** Length in seconds of a media file, read from ffmpeg's banner (ffmpeg-static ships no ffprobe). */
+export function parseDuration(banner: string): number | null {
+  const m = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(banner);
+  return m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : null;
+}
+
+export async function probeDuration(file: string, bin?: string): Promise<number | null> {
+  const exe = bin ?? (await ffmpegPath());
+  const r = spawnSync(exe, ["-hide_banner", "-i", file], { encoding: "utf8" });
+  return parseDuration(`${r.stderr ?? ""}${r.stdout ?? ""}`);
 }
