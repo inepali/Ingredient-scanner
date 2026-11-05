@@ -122,7 +122,7 @@ test("parseVoices puts free default voices first and labels them", () => {
   assert.deepEqual(parseVoices(null), []);
 });
 
-import { buildPrompt, ensureHook, groupFor, parseTone, pickCandidates } from "./script.ts";
+import { MAX_WORDS, MIN_WORDS, buildPrompt, ensureHook, wordCount, groupFor, parseTone, pickCandidates } from "./script.ts";
 
 const ings = [
   { name: "Water", score: 95, reason: "Hydrating." },
@@ -210,4 +210,11 @@ test("script prompt asks for retention hooks at 15s, 35s and the end", () => {
   assert.match(p, /Hook at about 0:35/);
   assert.match(p, /Closing hook/);
   assert.match(p, /final question/);
+});
+
+test("script prompt sets a hard 1-minute word budget", () => {
+  const p = buildPrompt({ productName: "Oat Bar", overall: 52, allergens: [], ingredients: [{ name: "Oats", score: 95, reason: null }] });
+  assert.match(p, new RegExp(`between ${MIN_WORDS} and ${MAX_WORDS} words`));
+  assert.match(p, /55-62/);
+  assert.equal(wordCount({ title: "t", scenes: [{ seconds: 5, visual: "v", voiceover: "one two three" }, { seconds: 5, visual: "v", voiceover: "four five" }] }), 5);
 });

@@ -75,6 +75,14 @@ function overallFeel(overall: number): string {
   return overall >= 70 ? "mostly on the good side" : overall >= 45 ? "a mixed bag" : "mostly on the concerning side";
 }
 
+/** About 2.5 spoken words per second: 60 seconds is roughly 145 words. */
+export const MIN_WORDS = 125;
+export const MAX_WORDS = 165;
+
+export function wordCount(script: VideoScript): number {
+  return script.scenes.reduce((n, sc) => n + (sc.voiceover.trim() ? sc.voiceover.trim().split(/\s+/).length : 0), 0);
+}
+
 export function buildPrompt(i: ScriptInput) {
   const photoCount = Math.min(i.photos?.length ?? 0, 4);
   const tone = TONES[i.tone ?? DEFAULT_TONE];
@@ -131,7 +139,8 @@ ${photoCount} photo${photoCount === 1 ? "" : "s"} of the actual product ${photoC
   }
 RULES
 - "visual": one concrete sentence describing what is on screen, written as a prompt for an image-to-video model (subject, setting, camera movement). No on-screen text, no logos, no real people's names.
-- "voiceover": the spoken line, about 2.5 words per second of the scene, in the tone above. Total narration is about 150 words.
+- "voiceover": the spoken line, about 2.5 words per second of the scene, in the tone above.
+- LENGTH IS A HARD LIMIT: the whole video is about 1 minute. Total narration across all scenes must be between ${MIN_WORDS} and ${MAX_WORDS} words (aim for about 145), and "seconds" must add up to 55-62. Be concise: short sentences, no filler, no repeating yourself. The retention hooks and the closing question count toward this total.
 - Only talk about ingredients listed above. Do not invent ingredients, numbers or studies.
 - Health statements must be widely accepted nutrition basics, phrased with "may", "can" or "tends to", and consistent with the note shown for that ingredient. If you are not sure a benefit or concern is well established, leave that ingredient out.
 - No disease claims, no "cures", "treats", "prevents", "detox" or weight-loss promises, and no scare tactics. Do not shame people for eating it.`;
@@ -177,20 +186,32 @@ export function ensureHook(script: VideoScript): VideoScript {
 }
 
 export async function createScript(input: ScriptInput): Promise<VideoScript> {
-  const prompt = buildPrompt(input);
+  const base = buildPrompt(input);
+  let prompt = base;
+  let best: VideoScript | null = null;
   let lastText = "";
-  // Models occasionally answer with prose or cut the JSON short; one retry fixes most of those.
-  for (let attempt = 0; attempt < 2; attempt++) {
+  // Up to 3 tries: bad/empty output is retried as is; a draft that runs too long or short is retried with its word count.
+  for (let attempt = 0; attempt < 3; attempt++) {
     lastText = await generateText(prompt, input.photos ?? []);
+    let script: VideoScript;
     try {
-      return ensureHook(parseScript(lastText));
+      script = ensureHook(parseScript(lastText));
     } catch (err) {
-      if (attempt === 1) {
+      if (attempt === 2 && !best) {
         const snippet = lastText.trim().replace(/\s+/g, " ").slice(0, 160);
         throw new Error(`${err instanceof Error ? err.message : "Bad script"}. The model said: "${snippet || "(nothing)"}"`);
       }
+      continue;
     }
+    const words = wordCount(script);
+    if (words >= MIN_WORDS && words <= MAX_WORDS) return script;
+    // Keep the draft closest to a minute in case no retry lands in range.
+    if (!best || Math.abs(words - 145) < Math.abs(wordCount(best) - 145)) best = script;
+    prompt = `${base}
+
+Your previous draft had ${words} words, which is ${words > MAX_WORDS ? "too long" : "too short"} for a 1-minute video. Rewrite it with between ${MIN_WORDS} and ${MAX_WORDS} words total (aim for 145).`;
   }
+  if (best) return best;
   throw new Error("Could not write the script.");
 }
 
