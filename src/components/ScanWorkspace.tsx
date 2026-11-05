@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DEFAULT_DELIVERY, DELIVERIES, type Delivery } from "@/lib/delivery";
 import { withPublicLink } from "@/lib/public-link";
@@ -103,7 +104,7 @@ function postJson<T>(url: string, body: unknown, method = "POST"): Promise<T> {
   });
 }
 
-type TabId = "ingredients" | "script" | "voice" | "animation" | "video" | "social";
+type TabId = "ingredients" | "script" | "voice" | "animation" | "video" | "social" | "post";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "ingredients", label: "Ingredients" },
@@ -111,7 +112,8 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "voice", label: "Voice" },
   { id: "animation", label: "Animation" },
   { id: "video", label: "Final Video" },
-  { id: "social", label: "Social" },
+  { id: "social", label: "Social Copy" },
+  { id: "post", label: "Connect & Post" },
 ];
 
 const btn =
@@ -351,6 +353,7 @@ export default function ScanWorkspace(props: StudioProps) {
     animation: pendingJobs.length > 0 ? "busy" : clips.length > 0 ? "done" : null,
     video: renderJobId !== null ? "busy" : videoUrl ? "done" : null,
     social: copy.length > 0 ? "done" : null,
+    post: posts.some((p) => p.status === "processing") ? "busy" : posts.some((p) => p.status === "published") ? "done" : null,
   };
 
   return (
@@ -365,6 +368,14 @@ export default function ScanWorkspace(props: StudioProps) {
 
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-8">
       <nav aria-label="Scan steps" className="md:sticky md:top-6 md:w-52 md:shrink-0">
+        <div className="mb-2 flex gap-4 text-sm md:mb-3 md:flex-col md:gap-0.5 md:border-b md:pb-3">
+          <Link href="/" className="rounded-lg px-1 py-1 text-neutral-600 hover:text-neutral-900 md:px-3 md:py-2 md:hover:bg-neutral-100">
+            + New scan
+          </Link>
+          <Link href="/history" className="rounded-lg px-1 py-1 text-neutral-600 hover:text-neutral-900 md:px-3 md:py-2 md:hover:bg-neutral-100">
+            History
+          </Link>
+        </div>
         <div
           role="tablist"
           aria-orientation="vertical"
@@ -821,7 +832,7 @@ export default function ScanWorkspace(props: StudioProps) {
       {videoUrl && (
         <div className="flex justify-end">
           <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => selectTab("social", true)}>
-            Next: Social →
+            Next: Social Copy →
           </button>
         </div>
       )}
@@ -955,6 +966,15 @@ export default function ScanWorkspace(props: StudioProps) {
         {isPublic && <p className="text-xs text-neutral-500">When you post from here, the link is added to the caption automatically.</p>}
       </section>
 
+      {copy.length > 0 && (
+        <div className="flex justify-end">
+          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => selectTab("post", true)}>
+            Next: Connect &amp; Post →
+          </button>
+        </div>
+      )}
+      </div>
+      <div role="tabpanel" id="panel-post" aria-labelledby="tab-post" hidden={tab !== "post"} className="space-y-4 pt-4">
       <section className={card}>
         <h3 className="font-medium">Connect and post</h3>
         {!social.guarded && (

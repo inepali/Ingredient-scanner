@@ -95,7 +95,7 @@ When you upload videos, **they are the video**: joined whole, in the order you s
 
 ## Public report page
 
-Social tab → **Public page** → Make public. The page `/p/<scan id>` shows the score ring and the full ingredient breakdown, works without the password, and is not indexed by search engines. It's off by default; turning it off makes the link return "not found". When a scan is public, the link is added to the caption when you post from the Social tab.
+Social Copy tab → **Public page** → Make public. The page `/p/<scan id>` shows the score ring and the full ingredient breakdown, works without the password, and is not indexed by search engines. It's off by default; turning it off makes the link return "not found". When a scan is public, the link is added to the caption when you post from the Social tab.
 
 The video's score is now the same ring as the page header (coloured arc from the top, number in the middle).
 
@@ -104,7 +104,7 @@ The video's score is now the same ring as the page header (coloured arc from the
 1. console.cloud.google.com → new project → **APIs & Services → Library** → enable **YouTube Data API v3**.
 2. **OAuth consent screen**: External, add yourself under **Test users**.
 3. **Credentials → Create credentials → OAuth client ID → Web application**, redirect URI `https://YOUR-APP/api/social/youtube/callback`.
-4. Set `YOUTUBE_CLIENT_ID` and `YOUTUBE_CLIENT_SECRET` in Vercel and redeploy, then **Connect YouTube** on the Social tab.
+4. Set `YOUTUBE_CLIENT_ID` and `YOUTUBE_CLIENT_SECRET` in Vercel and redeploy, then **Connect YouTube** on the Connect & Post tab.
 
 The video is uploaded as a Short (`#Shorts` is added). YouTube has no copy of its own: it uses the Instagram title/description/hashtags (TikTok's if there is no Instagram copy). Until Google audits the project, uploads are forced to **private**; each upload uses about 1,600 of the 10,000 free daily quota units.
 
