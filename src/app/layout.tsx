@@ -10,7 +10,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <main className="mx-auto max-w-2xl p-6">{children}</main>
+        <main className="mx-auto max-w-2xl p-6 has-[[data-wide]]:max-w-5xl">{children}</main>
       </body>
     </html>
   );

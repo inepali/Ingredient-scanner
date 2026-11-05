@@ -271,7 +271,7 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" data-wide>
       <div className="flex gap-4 text-sm text-neutral-500">
         <Link href="/" className="underline">
           ← New scan

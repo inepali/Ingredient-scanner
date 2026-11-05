@@ -109,3 +109,7 @@ The video's score is now the same ring as the page header (coloured arc from the
 The video is uploaded as a Short (`#Shorts` is added). YouTube has no copy of its own: it uses the Instagram title/description/hashtags (TikTok's if there is no Instagram copy). Until Google audits the project, uploads are forced to **private**; each upload uses about 1,600 of the 10,000 free daily quota units.
 
 When the public page is on, its link is inserted right after the "not medical advice" line of every post description.
+
+## Layout
+
+On a scan, the steps (Ingredients, Script, Voice, Animation, Final Video, Social) are a left sidebar on desktop, with a number or a green check for each step and a pulsing dot while something is running. On a phone the sidebar becomes a scrolling bar across the top. The current step is kept in the URL (`#voice`), so a reload keeps your place.

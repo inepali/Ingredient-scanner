@@ -144,8 +144,8 @@ export default function ScanWorkspace(props: StudioProps) {
   function onTabKey(e: KeyboardEvent, index: number) {
     const last = TABS.length - 1;
     const target =
-      e.key === "ArrowRight" ? (index + 1) % TABS.length
-      : e.key === "ArrowLeft" ? (index - 1 + TABS.length) % TABS.length
+      e.key === "ArrowRight" || e.key === "ArrowDown" ? (index + 1) % TABS.length
+      : e.key === "ArrowLeft" || e.key === "ArrowUp" ? (index - 1 + TABS.length) % TABS.length
       : e.key === "Home" ? 0
       : e.key === "End" ? last
       : null;
@@ -363,41 +363,58 @@ export default function ScanWorkspace(props: StudioProps) {
       {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       {notice && <p className="rounded-md bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
 
-      <div role="tablist" aria-label="Scan steps" className="-mx-1 flex gap-1 overflow-x-auto border-b px-1">
-        {TABS.map((t, i) => {
-          const active = tab === t.id;
-          const st = tabStatus[t.id];
-          return (
-            <button
-              key={t.id}
-              ref={(el) => {
-                tabRefs.current[t.id] = el;
-              }}
-              role="tab"
-              id={`tab-${t.id}`}
-              aria-selected={active}
-              aria-controls={`panel-${t.id}`}
-              tabIndex={active ? 0 : -1}
-              onClick={() => selectTab(t.id)}
-              onKeyDown={(e) => onTabKey(e, i)}
-              className={`-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm ${
-                active ? "border-neutral-900 font-medium text-neutral-900" : "border-transparent text-neutral-500 hover:text-neutral-800"
-              }`}
-            >
-              {t.label}
-              {st === "done" && (
-                <span className="text-green-600" aria-label="done">
-                  ✓
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-8">
+      <nav aria-label="Scan steps" className="md:sticky md:top-6 md:w-52 md:shrink-0">
+        <div
+          role="tablist"
+          aria-orientation="vertical"
+          aria-label="Scan steps"
+          className="-mx-1 flex gap-1 overflow-x-auto border-b px-1 md:mx-0 md:flex-col md:gap-0.5 md:overflow-visible md:border-b-0 md:px-0"
+        >
+          {TABS.map((t, i) => {
+            const active = tab === t.id;
+            const st = tabStatus[t.id];
+            return (
+              <button
+                key={t.id}
+                ref={(el) => {
+                  tabRefs.current[t.id] = el;
+                }}
+                role="tab"
+                id={`tab-${t.id}`}
+                aria-selected={active}
+                aria-controls={`panel-${t.id}`}
+                tabIndex={active ? 0 : -1}
+                onClick={() => selectTab(t.id)}
+                onKeyDown={(e) => onTabKey(e, i)}
+                className={`-mb-px flex shrink-0 items-center gap-2.5 whitespace-nowrap border-b-2 px-3 py-2 text-left text-sm md:mb-0 md:w-full md:rounded-lg md:border-b-0 md:py-2.5 ${
+                  active
+                    ? "border-neutral-900 font-medium text-neutral-900 md:bg-neutral-900 md:text-white"
+                    : "border-transparent text-neutral-500 hover:text-neutral-800 md:hover:bg-neutral-100"
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`hidden h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs md:flex ${
+                    st === "done" ? "bg-green-600 text-white" : active ? "bg-white/20 text-white" : "bg-neutral-200 text-neutral-600"
+                  }`}
+                >
+                  {st === "done" ? "✓" : i + 1}
                 </span>
-              )}
-              {st === "busy" && (
-                <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" aria-label="in progress" />
-              )}
-            </button>
-          );
-        })}
-      </div>
+                <span className="flex-1">{t.label}</span>
+                {st === "done" && (
+                  <span className="text-green-600 md:hidden" aria-label="done">
+                    ✓
+                  </span>
+                )}
+                {st === "busy" && <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" aria-label="in progress" />}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
 
+      <div className="min-w-0 flex-1">
       <div role="tabpanel" id="panel-ingredients" aria-labelledby="tab-ingredients" hidden={tab !== "ingredients"} className="space-y-4 pt-4">
         {ingredients}
       </div>
@@ -587,7 +604,7 @@ export default function ScanWorkspace(props: StudioProps) {
           <p className="text-sm text-neutral-500">No product photos on this scan. Upload your own product video below instead.</p>
         ) : (
           <>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2 md:grid-cols-5">
               {photos.map((p) => {
                 const clip = clipBySource.get(p.id);
                 const pending = pendingSources.has(p.id);
@@ -676,7 +693,7 @@ export default function ScanWorkspace(props: StudioProps) {
           </div>
         )}
         {uploads.length > 0 && (
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 md:grid-cols-5">
             {uploads.map((u, idx) => (
               <figure key={u.id} className="space-y-1">
                 <div className="relative aspect-[9/16] overflow-hidden rounded-md bg-neutral-100">
@@ -1057,6 +1074,8 @@ export default function ScanWorkspace(props: StudioProps) {
           TikTok and YouTube keep posts from unapproved apps private. Instagram needs a Business or Creator account. YouTube uses your Instagram text for the title and description.
         </p>
       </section>
+      </div>
+      </div>
       </div>
     </div>
   );
