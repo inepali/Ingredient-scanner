@@ -29,13 +29,23 @@ export async function generateText(prompt: string, images: LlmImage[] = []): Pro
               ],
             },
           ],
-          generationConfig: { responseMimeType: "application/json", maxOutputTokens: 8000 },
+          generationConfig: {
+            responseMimeType: "application/json",
+            maxOutputTokens: 12000,
+            // Gemini 2.5 "thinking" tokens count against the output limit and can leave nothing for the answer.
+            ...(/flash/i.test(model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+          },
         }),
       },
     );
     if (!res.ok) throw new Error(`Gemini API ${res.status}: ${(await res.text()).slice(0, 300)}`);
-    const body = (await res.json()) as GeminiResponse;
-    return (body.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("");
+    const body = (await res.json()) as GeminiResponse & { promptFeedback?: { blockReason?: string } };
+    const text = (body.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("");
+    if (!text.trim()) {
+      const why = body.promptFeedback?.blockReason ?? (body.candidates?.[0] as { finishReason?: string } | undefined)?.finishReason ?? "no reason given";
+      throw new Error(`Gemini returned an empty answer (${why}). Try again.`);
+    }
+    return text;
   }
 
   const key = process.env.ANTHROPIC_API_KEY;

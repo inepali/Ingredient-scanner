@@ -71,7 +71,11 @@ async function analyzeWithGemini(image: Buffer, mediaType: string, key: string) 
             ],
           },
         ],
-        generationConfig: { responseMimeType: "application/json", maxOutputTokens: 8000 },
+        generationConfig: {
+          responseMimeType: "application/json",
+          maxOutputTokens: 12000,
+          ...(/flash/i.test(GEMINI_MODEL) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+        },
       }),
     },
   );

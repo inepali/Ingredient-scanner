@@ -177,7 +177,21 @@ export function ensureHook(script: VideoScript): VideoScript {
 }
 
 export async function createScript(input: ScriptInput): Promise<VideoScript> {
-  return ensureHook(parseScript(await generateText(buildPrompt(input), input.photos ?? [])));
+  const prompt = buildPrompt(input);
+  let lastText = "";
+  // Models occasionally answer with prose or cut the JSON short; one retry fixes most of those.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    lastText = await generateText(prompt, input.photos ?? []);
+    try {
+      return ensureHook(parseScript(lastText));
+    } catch (err) {
+      if (attempt === 1) {
+        const snippet = lastText.trim().replace(/\s+/g, " ").slice(0, 160);
+        throw new Error(`${err instanceof Error ? err.message : "Bad script"}. The model said: "${snippet || "(nothing)"}"`);
+      }
+    }
+  }
+  throw new Error("Could not write the script.");
 }
 
 /** The full spoken narration: every scene's voiceover line, in order. */
