@@ -7,6 +7,8 @@ export function middleware(req: NextRequest) {
   if (!pass) return NextResponse.next();
   // Public report pages (/p/<id>) are meant to be shared; they only show scans you turned public.
   if (req.nextUrl.pathname.startsWith("/p/")) return NextResponse.next();
+  // Terms and Privacy must be public: TikTok, Google and Meta reviewers open them without a password.
+  if (req.nextUrl.pathname === "/terms" || req.nextUrl.pathname === "/privacy") return NextResponse.next();
 
   const header = req.headers.get("authorization") ?? "";
   if (header.startsWith("Basic ")) {

@@ -117,3 +117,7 @@ On a scan, the steps (Ingredients, Script, Voice, Animation, Final Video, Social
 ## Score badges on the video
 
 When Open Food Facts has them for the scanned product, the video shows a dark pill bar along the bottom with a colour chip for NOVA, Nutri-Score and Green-Score (left to right), each with a short word like "Ultra-processed" or "Good". Missing metrics are left out. Drawn in `src/lib/badges.ts`.
+
+## Terms and Privacy pages
+
+`/terms` and `/privacy` are public (they skip the password) so TikTok, Google and Meta can open them during app review. Use `https://<your-app-url>/terms` and `/privacy` in the developer app forms. The contact email and date live in `src/components/LegalPage.tsx`.
