@@ -100,18 +100,21 @@ test("buildFfmpegArgs targets 1080x1920 H.264 with the voiceover mapped", () => 
   assert.equal(args[args.indexOf("-map", args.indexOf("[vout]")) + 1], "2:a");
 });
 
-test("badges: only known metrics get a card, in fixed slots", () => {
+test("badges: only known metrics get a chip, in order, coloured by value", () => {
   assert.equal(badgesPng({ nova: null, nutriscore: null, green: null }), null);
   const cards = badgeCards({ nova: 3, green: "a-plus" });
   assert.deepEqual(cards.map((c) => c.title), ["NOVA", "GREEN-SCORE"]);
   assert.ok(cards[0].x < cards[1].x);
-  assert.equal(cards[0].steps.filter((s) => s.selected).map((s) => s.label).join(), "3");
-  assert.equal(cards[1].steps.find((s) => s.selected)?.label, "A+");
+  assert.equal(cards[0].label, "3");
+  assert.equal(cards[0].color, "#EE8100");
+  assert.equal(cards[1].label, "A+");
   const all = badgeCards({ nova: 1, nutriscore: "e", green: "d" });
   assert.deepEqual(all.map((c) => c.title), ["NOVA", "NUTRI-SCORE", "GREEN-SCORE"]);
+  assert.equal(all[1].color, "#E63E11");
   const ass = buildAss({ words: [], duration: 5, fontName: "X", badges: { nova: 4, nutriscore: "a", green: null } });
   assert.match(ass, /BadgeTitle,,0,0,0,,.*NOVA/);
   assert.match(ass, /BadgeTitle,,0,0,0,,.*NUTRI-SCORE/);
+  assert.match(ass, /Ultra-processed/);
   assert.doesNotMatch(ass, /GREEN-SCORE/);
 });
 

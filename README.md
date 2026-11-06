@@ -116,4 +116,4 @@ On a scan, the steps (Ingredients, Script, Voice, Animation, Final Video, Social
 
 ## Score badges on the video
 
-When Open Food Facts has them for the scanned product, the video shows three cards along the bottom: NOVA (left), Nutri-Score (centre) and Green-Score (right), each coloured by its value. Missing metrics are simply left out. Drawn in `src/lib/badges.ts`.
+When Open Food Facts has them for the scanned product, the video shows a dark pill bar along the bottom with a colour chip for NOVA, Nutri-Score and Green-Score (left to right), each with a short word like "Ultra-processed" or "Good". Missing metrics are left out. Drawn in `src/lib/badges.ts`.
