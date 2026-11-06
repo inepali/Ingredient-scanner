@@ -25,7 +25,9 @@ test("buildAss has styles, timed captions and the ring score number", () => {
   assert.match(ass, /PlayResX: 1080/);
   assert.match(ass, /Dialogue: 0,0:00:00\.00,.*Caption,,0,0,0,,HELLO THERE FRIEND/);
   assert.match(ass, /Dialogue: 1,0:00:00\.00,0:00:03\.00,RingScore,,0,0,0,,\{\\an5\\pos\(540,300\)\}42/);
-  assert.doesNotMatch(buildAss({ words: [], duration: 1, fontName: "x" }), /RingScore,,/);
+  assert.match(ass, /RingLabel,,0,0,0,,\{\\an5\\pos\(540,238\)\}HEALTHY/);
+  assert.match(ass, /RingLabel,,0,0,0,,\{\\an5\\pos\(540,362\)\}SCORE/);
+  assert.doesNotMatch(buildAss({ words: [], duration: 1, fontName: "x" }), /RingScore,,|RingLabel,,/);
 });
 
 test("planSegments follows the spoken words", () => {

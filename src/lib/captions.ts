@@ -79,6 +79,9 @@ function assText(t: string): string {
  * outline in the lower third (clear of TikTok/Reels buttons) and the score number
  * for the ring overlay at the top for the whole video.
  */
+/** Distance (px, in a 1080-wide video) from the ring centre to the HEALTHY / SCORE labels. */
+const RING_LABEL_OFFSET = 62;
+
 export function buildAss(opts: {
   words: Word[];
   duration: number;
@@ -98,6 +101,10 @@ export function buildAss(opts: {
   if (opts.score != null) {
     const c = opts.ringCenter ?? { x: Math.round(W / 2), y: 300 };
     lines.push(`Dialogue: 1,${assTime(0)},${assTime(opts.duration)},RingScore,,0,0,0,,{\\an5\\pos(${c.x},${c.y})}${Math.round(opts.score)}`);
+    // "HEALTHY" above the number and "SCORE" below it, inside the ring.
+    for (const [text, dy] of [["HEALTHY", -RING_LABEL_OFFSET], ["SCORE", RING_LABEL_OFFSET]] as const) {
+      lines.push(`Dialogue: 1,${assTime(0)},${assTime(opts.duration)},RingLabel,,0,0,0,,{\\an5\\pos(${c.x},${c.y + dy})}${text}`);
+    }
   }
   return `[Script Info]
 ScriptType: v4.00+
@@ -109,7 +116,8 @@ ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Caption,${opts.fontName},78,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,7,1,2,70,70,520,1
-Style: RingScore,${opts.fontName},112,&H00171717,&H00171717,&H00171717,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
+Style: RingLabel,${opts.fontName},30,&H00525252,&H00525252,&H00525252,&H00000000,-1,0,0,0,100,100,2,0,1,0,0,5,0,0,0,1
+Style: RingScore,${opts.fontName},100,&H00171717,&H00171717,&H00171717,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
