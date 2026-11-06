@@ -89,8 +89,8 @@ import { withPublicLink } from "./public-link.ts";
 test("public link goes right after the not-medical-advice line", () => {
   const url = "https://x.app/p/abc";
   assert.equal(
-    withPublicLink("Great label.\n\nAI-assisted analysis, not medical advice.", url),
-    "Great label.\n\nAI-assisted analysis, not medical advice.\n\nFull ingredient breakdown: https://x.app/p/abc",
+    withPublicLink("Great label.\n\nNot medical advice.", url),
+    "Great label.\n\nNot medical advice.\n\nFull ingredient breakdown: https://x.app/p/abc",
   );
   assert.equal(
     withPublicLink("Intro. Not medical advice. More text.", url),

@@ -5,7 +5,7 @@ import { generateText } from "./llm.ts";
 export type SocialCopy = { title: string; description: string; hashtags: string[] };
 export type CopyResult = { tiktok: SocialCopy; instagram: SocialCopy };
 
-export const AI_NOTE = "AI-assisted analysis, not medical advice.";
+export const AI_NOTE = "Not medical advice.";
 
 export type CopyInput = {
   productName: string | null;
