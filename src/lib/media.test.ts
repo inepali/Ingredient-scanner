@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { wordsFromAlignment } from "./captions.ts";
 import { isMock, mockAlignment, silentWav, speechSeconds } from "./mock.ts";
 import { estimateCostUsd } from "./pricing.ts";
-import { mergeHashtags, normalizeHashtags, parseCopy, AI_NOTE } from "./copy.ts";
+import { mergeHashtags, normalizeHashtags, parseCopy, AI_NOTE, CTA, OFF_CREDIT } from "./copy.ts";
 import { narration, parseScript } from "./script.ts";
 
 test("wordsFromAlignment groups characters into timed words", () => {
@@ -90,9 +90,11 @@ test("parseCopy truncates, cleans hashtags and appends the AI note", () => {
       '"instagram": {"title": "Ig", "description": "", "hashtags": []}}\n```',
   );
   assert.equal(out.tiktok.title.length, 100);
-  assert.equal(out.tiktok.description, `Short.\n\n${AI_NOTE}`);
+  assert.equal(out.tiktok.description, `Short.\n\n${CTA}\n\n${AI_NOTE}`);
   assert.deepEqual(out.tiktok.hashtags, ["snacks", "labelcheck"]);
-  assert.equal(out.instagram.description, AI_NOTE);
+  assert.equal(out.instagram.description, `${CTA}\n\n${AI_NOTE}`);
+  const withOff = parseCopy('{"tiktok": {"title": "t", "description": "d", "hashtags": []}, "instagram": {"title": "i", "description": "", "hashtags": []}}', true);
+  assert.equal(withOff.tiktok.description, `d\n\n${CTA}\n\n${AI_NOTE}\n\n${OFF_CREDIT}`);
 });
 
 test("parseCopy rejects non-JSON", () => {

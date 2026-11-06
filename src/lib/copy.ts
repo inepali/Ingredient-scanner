@@ -6,6 +6,8 @@ export type SocialCopy = { title: string; description: string; hashtags: string[
 export type CopyResult = { tiktok: SocialCopy; instagram: SocialCopy };
 
 export const AI_NOTE = "Not medical advice.";
+export const CTA = "Do you eat this? Tell me in the comments.";
+export const OFF_CREDIT = "Product data: Open Food Facts";
 
 export type CopyInput = {
   productName: string | null;
@@ -35,25 +37,27 @@ export function mergeHashtags(generated: string[], curated: string[], max = 10):
   return normalizeHashtags([...curated.slice(0, 3), ...generated, ...curated.slice(3)]).slice(0, max);
 }
 
-function cleanCopy(v: unknown, titleMax: number, descMax: number): SocialCopy {
+function cleanCopy(v: unknown, titleMax: number, descMax: number, credit: boolean): SocialCopy {
   const o = (typeof v === "object" && v !== null ? v : {}) as Record<string, unknown>;
   const title = (typeof o.title === "string" ? o.title.trim() : "").slice(0, titleMax);
   const desc = (typeof o.description === "string" ? o.description.trim() : "").slice(0, descMax);
   return {
     title,
-    description: desc ? `${desc}\n\n${AI_NOTE}` : AI_NOTE,
+    // body, call to action, disclaimer (the public link goes right after it), then the data credit
+    description: [desc, CTA, AI_NOTE, credit ? OFF_CREDIT : ""].filter(Boolean).join("\n\n"),
     hashtags: normalizeHashtags(o.hashtags).slice(0, 10),
   };
 }
 
-export function parseCopy(text: string): CopyResult {
+/** `offCredit`: the scan used Open Food Facts data, so credit them (their licence asks for it). */
+export function parseCopy(text: string, offCredit = false): CopyResult {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start < 0 || end <= start) throw new Error("Model returned no JSON");
   const data = JSON.parse(text.slice(start, end + 1)) as Record<string, unknown>;
   return {
-    tiktok: cleanCopy(data.tiktok, 100, 300),
-    instagram: cleanCopy(data.instagram, 100, 600),
+    tiktok: cleanCopy(data.tiktok, 100, 300, offCredit),
+    instagram: cleanCopy(data.instagram, 100, 600, offCredit),
   };
 }
 
@@ -77,5 +81,5 @@ No medical or disease claims, no emoji spam.`;
 }
 
 export async function createCopy(input: CopyInput): Promise<CopyResult> {
-  return parseCopy(await generateText(buildPrompt(input)));
+  return parseCopy(await generateText(buildPrompt(input)), Boolean(input.offFacts));
 }

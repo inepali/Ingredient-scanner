@@ -125,3 +125,8 @@ test("Google tokens and YouTube metadata", () => {
   assert.match(m.snippet.description, /#a #b #Shorts/);
   assert.deepEqual(m.snippet.tags, ["a", "b"]);
 });
+
+test("public link sits between the disclaimer and the data credit", () => {
+  const out = withPublicLink("Nice.\n\nDo you eat this?\n\nNot medical advice.\n\nProduct data: Open Food Facts", "https://x.app/p/abc");
+  assert.equal(out, "Nice.\n\nDo you eat this?\n\nNot medical advice.\n\nFull ingredient breakdown: https://x.app/p/abc\n\nProduct data: Open Food Facts");
+});
