@@ -1,3 +1,4 @@
+import { badgeDialogues, type BadgeData } from "./badges.ts";
 // ElevenLabs returns character-level timings. Captions need word-level timings.
 
 export type Alignment = {
@@ -90,6 +91,8 @@ export function buildAss(opts: {
   score?: number | null;
   /** Centre of the ring overlay, in video pixels. */
   ringCenter?: { x: number; y: number };
+  /** NOVA / Nutri-Score / Green-Score cards along the bottom (only the known ones are drawn). */
+  badges?: Partial<BadgeData>;
   width?: number;
   height?: number;
 }): string {
@@ -106,6 +109,7 @@ export function buildAss(opts: {
       lines.push(`Dialogue: 1,${assTime(0)},${assTime(opts.duration)},RingLabel,,0,0,0,,{\\an5\\pos(${c.x},${c.y + dy})}${text}`);
     }
   }
+  if (opts.badges) lines.push(...badgeDialogues(opts.badges, assTime(0), assTime(opts.duration)));
   return `[Script Info]
 ScriptType: v4.00+
 PlayResX: ${W}
@@ -117,6 +121,8 @@ ScaledBorderAndShadow: yes
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Caption,${opts.fontName},78,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,7,1,2,70,70,520,1
 Style: RingLabel,${opts.fontName},30,&H00525252,&H00525252,&H00525252,&H00000000,-1,0,0,0,100,100,2,0,1,0,0,5,0,0,0,1
+Style: BadgeTitle,${opts.fontName},24,&H00525252,&H00525252,&H00525252,&H00000000,-1,0,0,0,100,100,1,0,1,0,0,5,0,0,0,1
+Style: BadgeLetter,${opts.fontName},40,&H00FFFFFF,&H00FFFFFF,&H00FFFFFF,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
 Style: RingScore,${opts.fontName},100,&H00171717,&H00171717,&H00171717,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
 
 [Events]

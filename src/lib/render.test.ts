@@ -1,3 +1,4 @@
+import { badgeCards, badgesPng } from "./badges.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -99,6 +100,21 @@ test("buildFfmpegArgs targets 1080x1920 H.264 with the voiceover mapped", () => 
   assert.equal(args[args.indexOf("-map", args.indexOf("[vout]")) + 1], "2:a");
 });
 
+test("badges: only known metrics get a card, in fixed slots", () => {
+  assert.equal(badgesPng({ nova: null, nutriscore: null, green: null }), null);
+  const cards = badgeCards({ nova: 3, green: "a-plus" });
+  assert.deepEqual(cards.map((c) => c.title), ["NOVA", "GREEN-SCORE"]);
+  assert.ok(cards[0].x < cards[1].x);
+  assert.equal(cards[0].steps.filter((s) => s.selected).map((s) => s.label).join(), "3");
+  assert.equal(cards[1].steps.find((s) => s.selected)?.label, "A+");
+  const all = badgeCards({ nova: 1, nutriscore: "e", green: "d" });
+  assert.deepEqual(all.map((c) => c.title), ["NOVA", "NUTRI-SCORE", "GREEN-SCORE"]);
+  const ass = buildAss({ words: [], duration: 5, fontName: "X", badges: { nova: 4, nutriscore: "a", green: null } });
+  assert.match(ass, /BadgeTitle,,0,0,0,,.*NOVA/);
+  assert.match(ass, /BadgeTitle,,0,0,0,,.*NUTRI-SCORE/);
+  assert.doesNotMatch(ass, /GREEN-SCORE/);
+});
+
 const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0;
 
 test("real render: clip + still + captions -> 1080x1920 mp4", { skip: !hasFfmpeg }, async () => {
@@ -108,6 +124,7 @@ test("real render: clip + still + captions -> 1080x1920 mp4", { skip: !hasFfmpeg
     run(["-f", "lavfi", "-i", "testsrc=size=720x1280:rate=24:duration=5", "-pix_fmt", "yuv420p", join(dir, "clip.mp4")]);
     run(["-f", "lavfi", "-i", "testsrc2=size=1000x1000", "-frames:v", "1", join(dir, "photo.jpg")]);
 
+    const badges = { nova: 4 as const, nutriscore: "d" as const, green: "b" as const };
     const text = "This snack scores forty two out of one hundred. Sugar comes first. Skip it.";
     const seconds = 9;
     writeFileSync(join(dir, "voice.wav"), silentWav(seconds));
@@ -121,8 +138,9 @@ test("real render: clip + still + captions -> 1080x1920 mp4", { skip: !hasFfmpeg
       { number: 1, photoPath: join(dir, "photo.jpg"), clipPath: join(dir, "clip.mp4"), clipIsVideo: true },
       { number: 2, photoPath: join(dir, "photo.jpg"), clipPath: null, clipIsVideo: false },
     ]);
-    writeFileSync(join(dir, "c.ass"), buildAss({ words: w, duration: seconds, fontName: "DejaVu Sans", score: 42 }));
+    writeFileSync(join(dir, "c.ass"), buildAss({ words: w, duration: seconds, fontName: "DejaVu Sans", score: 42, badges }));
     writeFileSync(join(dir, "ring.png"), ringPng(300, 42, "#facc15"));
+    writeFileSync(join(dir, "badges.png"), badgesPng(badges)!);
 
     const out = join(dir, "out.mp4");
     const progress: number[] = [];
@@ -134,6 +152,7 @@ test("real render: clip + still + captions -> 1080x1920 mp4", { skip: !hasFfmpeg
         fontsDir: join(process.cwd(), "assets/fonts"),
         outFile: out,
         ringFile: join(dir, "ring.png"),
+        badgesFile: join(dir, "badges.png"),
         total: seconds,
         preset: "ultrafast",
       }),

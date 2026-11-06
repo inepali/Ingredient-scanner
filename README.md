@@ -113,3 +113,7 @@ When the public page is on, its link is inserted right after the "not medical ad
 ## Layout
 
 On a scan, the steps (Ingredients, Script, Voice, Animation, Final Video, Social) are a left sidebar on desktop, with a number or a green check for each step and a pulsing dot while something is running. On a phone the sidebar becomes a scrolling bar across the top. The current step is kept in the URL (`#voice`), so a reload keeps your place.
+
+## Score badges on the video
+
+When Open Food Facts has them for the scanned product, the video shows three cards along the bottom: NOVA (left), Nutri-Score (centre) and Green-Score (right), each coloured by its value. Missing metrics are simply left out. Drawn in `src/lib/badges.ts`.

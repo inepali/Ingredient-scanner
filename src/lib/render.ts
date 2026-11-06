@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { BADGE_TOP } from "./badges.ts";
 
 // Builds and runs one ffmpeg command: normalizes every segment to 1080x1920 at
 // 30 fps (clips loop to fit, stills get a slow zoom), concatenates them, burns
@@ -59,6 +60,8 @@ export type RenderOptions = {
   audioSeconds?: number;
   /** PNG of the score ring, overlaid top-centre for the whole video. */
   ringFile?: string;
+  /** PNG strip with the NOVA / Nutri-Score / Green-Score cards, overlaid at BADGE_TOP. */
+  badgesFile?: string;
   total: number;
   preset?: string;
 };
@@ -109,13 +112,16 @@ export function buildFfmpegArgs(o: RenderOptions): string[] {
   args.push("-i", o.audioFile);
   const n = o.segments.length;
   if (o.ringFile) args.push("-i", o.ringFile);
+  const badgesIdx = n + 1 + (o.ringFile ? 1 : 0);
+  if (o.badgesFile) args.push("-i", o.badgesFile);
   const concatIn = o.segments.map((_, i) => `[v${i}]`).join("");
   filters.push(`${concatIn}concat=n=${n}:v=1:a=0[vc]`);
   if (o.ringFile) {
     const x = Math.round((WIDTH - RING_SIZE) / 2);
     filters.push(`[vc][${n + 1}:v]overlay=${x}:${RING_TOP}[vr]`);
   }
-  filters.push(`[${o.ringFile ? "vr" : "vc"}]ass='${filterPath(o.assFile)}':fontsdir='${filterPath(o.fontsDir)}'[vout]`);
+  if (o.badgesFile) filters.push(`[${o.ringFile ? "vr" : "vc"}][${badgesIdx}:v]overlay=0:${BADGE_TOP}[vb]`);
+  filters.push(`[${o.badgesFile ? "vb" : o.ringFile ? "vr" : "vc"}]ass='${filterPath(o.assFile)}':fontsdir='${filterPath(o.fontsDir)}'[vout]`);
 
   args.push(
     "-filter_complex", filters.join(";"),

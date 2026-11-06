@@ -9,8 +9,10 @@ import { buildAss } from "./captions";
 import { assignSources, planFootage, planSegments, type PhotoRef } from "./timeline";
 import { RING_CENTER, RING_SIZE, buildFfmpegArgs, probeDuration, runFfmpeg, type RenderProgress, type RenderSegment } from "./render";
 import { ringPng } from "./ring";
+import { badgesPng } from "./badges";
 import { BAND_HEX, bandFor } from "./scoring";
 import type { MediaRow } from "./db-types";
+import type { OffSummary } from "./openfoodfacts";
 
 const FONT_NAME = "DejaVu Sans";
 
@@ -43,7 +45,7 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
     if (!video.audio_path) throw new Error("Generate the voiceover first.");
     const script = parseScript(video.script);
 
-    const { data: scan } = await db.from("scans").select("overall_score").eq("id", scanId).maybeSingle();
+    const { data: scan } = await db.from("scans").select("overall_score, off_data").eq("id", scanId).maybeSingle();
 
     const { data: mediaData } = await db
       .from("scan_media")
@@ -112,6 +114,10 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
     }
     if (segments.length === 0) throw new Error("Nothing to put on screen.");
 
+    const off = (scan?.off_data ?? null) as Partial<OffSummary> | null;
+    const badgeData = { nutriscore: off?.nutriscore ?? null, nova: off?.nova ?? null, green: off?.green ?? null };
+    const badgePng = badgesPng(badgeData);
+
     const assFile = join(dir, "captions.ass");
     await writeFile(
       assFile,
@@ -121,12 +127,19 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
         fontName: FONT_NAME,
         score: scan?.overall_score ?? null,
         ringCenter: RING_CENTER,
+        badges: badgePng ? badgeData : undefined,
       }),
     );
     let ringFile: string | undefined;
     if (scan?.overall_score != null) {
       ringFile = join(dir, "ring.png");
       await writeFile(ringFile, ringPng(RING_SIZE, scan.overall_score, BAND_HEX[bandFor(scan.overall_score)]));
+    }
+
+    let badgesFile: string | undefined;
+    if (badgePng) {
+      badgesFile = join(dir, "badges.png");
+      await writeFile(badgesFile, badgePng);
     }
 
     // Encode (10-90%): ffmpeg reports how many seconds of video it has written.
@@ -142,6 +155,7 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
         fontsDir: process.env.FONTS_DIR ?? join(process.cwd(), "assets", "fonts"),
         outFile,
         ringFile,
+        badgesFile,
         total: outTotal,
         preset: process.env.RENDER_PRESET || "veryfast",
       }),
