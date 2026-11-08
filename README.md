@@ -121,3 +121,7 @@ When Open Food Facts has them for the scanned product, the video shows a dark pi
 ## Terms and Privacy pages
 
 `/terms` and `/privacy` are public (they skip the password) so TikTok, Google and Meta can open them during app review. Use `https://<your-app-url>/terms` and `/privacy` in the developer app forms. The contact email and date live in `src/components/LegalPage.tsx`.
+
+## Your own lines (Voice tab)
+
+Voice tab → **Your own lines**: keep a list of hooks, "what I did" lines or catchphrases, pick where each is said (start, middle, or just before the closing question) and tick the ones to use. They are woven into the script as extra scenes when you generate a take, so captions and pictures follow. The list is saved in `settings.custom_lines` (migration 0011) and reused on every scan.

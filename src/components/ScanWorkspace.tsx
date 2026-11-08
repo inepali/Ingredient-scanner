@@ -5,6 +5,7 @@ import AppNav from "./AppNav";
 import { useRouter } from "next/navigation";
 import { DEFAULT_DELIVERY, DELIVERIES, type Delivery } from "@/lib/delivery";
 import { withPublicLink } from "@/lib/public-link";
+import { POSITIONS, type CustomLine, type LinePosition } from "@/lib/custom-lines";
 import { MAX_UPLOADS, MAX_UPLOAD_BYTES, videoTypeFor } from "@/lib/uploads";
 import { CLIP_SECONDS, PRICE_PER_SECOND, estimateCostUsd, type Resolution } from "@/lib/pricing";
 
@@ -164,6 +165,18 @@ export default function ScanWorkspace(props: StudioProps) {
   const [voiceId, setVoiceId] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [delivery, setDelivery] = useState<Delivery>(DEFAULT_DELIVERY);
+  // Your own reusable lines for the voiceover (saved in settings, ticked ones go into the next take).
+  const [lines, setLines] = useState<CustomLine[]>([]);
+  const [newLine, setNewLine] = useState("");
+  const [newPos, setNewPos] = useState<LinePosition>("start");
+  const [linesError, setLinesError] = useState<string | null>(null);
+  const saveLines = (next: CustomLine[]) => {
+    setLines(next);
+    setLinesError(null);
+    postJson<{ lines: CustomLine[] }>("/api/custom-lines", { lines: next }, "PUT").catch((e) =>
+      setLinesError(e instanceof Error ? e.message : "Could not save your lines."),
+    );
+  };
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ stage?: string; percent?: number } | null>(props.renderProgress);
   const [now, setNow] = useState(() => Date.now());
@@ -278,6 +291,12 @@ export default function ScanWorkspace(props: StudioProps) {
         if (r.warning) setVoiceError(r.warning);
       })
       .catch((e) => setVoiceError(e instanceof Error ? e.message : "Could not load voices."));
+  }, []);
+
+  useEffect(() => {
+    call<{ lines: CustomLine[] }>("/api/custom-lines")
+      .then((r) => setLines(r.lines))
+      .catch(() => {});
   }, []);
 
   useEffect(() => setProgress(props.renderProgress), [props.renderProgress]);
@@ -487,6 +506,82 @@ export default function ScanWorkspace(props: StudioProps) {
           {delivery === "steady" && "Steady: even and calm, with less variation."}
         </p>
         {voiceError && <p className="text-xs text-amber-700">{voiceError}</p>}
+
+        <div className="space-y-2 rounded-lg border bg-neutral-50 p-3">
+          <h4 className="text-sm font-medium">Your own lines</h4>
+          <p className="text-xs text-neutral-500">
+            Add a hook, something you did, or a catchphrase. Ticked lines are spoken in the next take at the spot you choose, with captions
+            to match. Your list is saved for every scan. Keep each to one or two sentences.
+          </p>
+          {lines.length > 0 && (
+            <ul className="space-y-2">
+              {lines.map((l) => (
+                <li key={l.id} className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={l.enabled}
+                    aria-label="Use this line in the next take"
+                    onChange={(e) => saveLines(lines.map((x) => (x.id === l.id ? { ...x, enabled: e.target.checked } : x)))}
+                  />
+                  <input
+                    defaultValue={l.text}
+                    maxLength={220}
+                    onBlur={(e) => {
+                      const text = e.target.value.trim();
+                      if (text === l.text) return;
+                      saveLines(text ? lines.map((x) => (x.id === l.id ? { ...x, text } : x)) : lines.filter((x) => x.id !== l.id));
+                    }}
+                    className="min-w-[12rem] flex-1 rounded-md border bg-white px-2 py-1 text-sm"
+                  />
+                  <select
+                    value={l.position}
+                    aria-label="Where to say it"
+                    onChange={(e) => saveLines(lines.map((x) => (x.id === l.id ? { ...x, position: e.target.value as LinePosition } : x)))}
+                    className="rounded-md border bg-white px-2 py-1 text-xs"
+                  >
+                    {POSITIONS.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="button" className="text-xs text-red-600 underline" onClick={() => saveLines(lines.filter((x) => x.id !== l.id))}>
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={newLine}
+              onChange={(e) => setNewLine(e.target.value)}
+              maxLength={220}
+              placeholder="e.g. I checked 20 snack bars so you don't have to."
+              className="min-w-[12rem] flex-1 rounded-md border bg-white px-2 py-1 text-sm"
+            />
+            <select value={newPos} onChange={(e) => setNewPos(e.target.value as LinePosition)} className="rounded-md border bg-white px-2 py-1 text-xs">
+              {POSITIONS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="rounded-md border bg-white px-3 py-1 text-sm"
+              disabled={!newLine.trim()}
+              onClick={() => {
+                saveLines([...lines, { id: `l-${Date.now().toString(36)}`, text: newLine.trim(), position: newPos, enabled: true }]);
+                setNewLine("");
+              }}
+            >
+              Add line
+            </button>
+          </div>
+          {linesError && <p className="text-xs text-amber-700">{linesError}</p>}
+        </div>
+
         <button
           className={btn}
           disabled={busy !== null || !hasScript}
@@ -497,6 +592,7 @@ export default function ScanWorkspace(props: StudioProps) {
                 {
                   ...(voiceId ? { voice_id: voiceId, voice_name: voices.find((v) => v.id === voiceId)?.name } : {}),
                   delivery,
+                  custom_lines: lines.filter((l) => l.enabled),
                 },
               );
               return r.warning ?? `New take saved and selected (${r.characters} characters${r.mock ? ", mock" : ""}).`;

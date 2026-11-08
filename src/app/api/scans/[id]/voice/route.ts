@@ -6,6 +6,7 @@ import { latestVideo } from "@/lib/queries";
 import { mediaUrl, putMedia } from "@/lib/storage";
 import { narration, parseScript } from "@/lib/script";
 import { parseDelivery } from "@/lib/delivery";
+import { cleanLines, withCustomLines } from "@/lib/custom-lines";
 import { HttpError, handler, json, paramId } from "@/lib/http";
 
 export const runtime = "nodejs";
@@ -15,7 +16,7 @@ export const maxDuration = 60;
 // Every take is kept in R2; the new one becomes the one the video uses.
 export const POST = handler(async (req, ctx) => {
   const id = await paramId(ctx);
-  const body = (await req.json().catch(() => ({}))) as { voice_id?: string; voice_name?: string; delivery?: string };
+  const body = (await req.json().catch(() => ({}))) as { voice_id?: string; voice_name?: string; delivery?: string; custom_lines?: unknown };
   const delivery = parseDelivery(body.delivery);
   const voiceName = typeof body.voice_name === "string" ? body.voice_name.trim().slice(0, 60) || null : null;
 
@@ -24,8 +25,12 @@ export const POST = handler(async (req, ctx) => {
   if (!video?.script) throw new HttpError("Create the script first.");
 
   let text: string;
+  let scriptJson = video.script;
   try {
-    text = narration(parseScript(video.script));
+    // Your own lines become extra scenes in the saved script, so captions and pictures follow the voice.
+    const withLines = withCustomLines(parseScript(video.script), cleanLines(body.custom_lines));
+    scriptJson = JSON.stringify(withLines);
+    text = narration(withLines);
   } catch {
     throw new HttpError("The saved script can't be read. Rewrite it and try again.");
   }
@@ -91,6 +96,7 @@ export const POST = handler(async (req, ctx) => {
         voice_id: voiceId || null,
         voiceover_id: takeId,
         audio_path: path,
+        script: scriptJson,
         video_path: null, // a new voiceover makes any earlier final video stale
         duration_s: speech.durationSeconds,
         alignment: speech.alignment,

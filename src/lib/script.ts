@@ -14,7 +14,7 @@ export { DEFAULT_TONE, TONES, parseTone, type Tone };
 export type Section = "hook" | "good" | "fair" | "poor" | "outro";
 export const SECTIONS: Section[] = ["hook", "good", "fair", "poor", "outro"];
 
-export type VideoScene = { seconds: number; visual: string; voiceover: string; photo?: number; section?: Section };
+export type VideoScene = { seconds: number; visual: string; voiceover: string; photo?: number; section?: Section; custom?: boolean };
 export type VideoScript = { title: string; scenes: VideoScene[] };
 
 export type ScriptInput = {
@@ -153,7 +153,7 @@ export function parseScript(text: string): VideoScript {
   const data = JSON.parse(text.slice(start, end + 1)) as Record<string, unknown>;
 
   const scenes: VideoScene[] = [];
-  for (const s of Array.isArray(data.scenes) ? data.scenes.slice(0, 12) : []) {
+  for (const s of Array.isArray(data.scenes) ? data.scenes.slice(0, 30) : []) {
     if (typeof s !== "object" || s === null) continue;
     const o = s as Record<string, unknown>;
     const visual = typeof o.visual === "string" ? o.visual.trim() : "";
@@ -168,6 +168,7 @@ export function parseScript(text: string): VideoScript {
       voiceover,
       ...(Number.isInteger(photo) && photo >= 1 && photo <= 12 ? { photo } : {}),
       ...(section ? { section } : {}),
+      ...(o.custom === true ? { custom: true } : {}),
     });
   }
   if (scenes.length === 0) throw new Error("Model returned no scenes");
