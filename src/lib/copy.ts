@@ -37,7 +37,7 @@ export function mergeHashtags(generated: string[], curated: string[], max = 10):
   return normalizeHashtags([...curated.slice(0, 3), ...generated, ...curated.slice(3)]).slice(0, max);
 }
 
-function cleanCopy(v: unknown, titleMax: number, descMax: number, credit: boolean): SocialCopy {
+function cleanCopy(v: unknown, titleMax: number, descMax: number, credit: boolean, tagMax = 10): SocialCopy {
   const o = (typeof v === "object" && v !== null ? v : {}) as Record<string, unknown>;
   const title = (typeof o.title === "string" ? o.title.trim() : "").slice(0, titleMax);
   const desc = (typeof o.description === "string" ? o.description.trim() : "").slice(0, descMax);
@@ -45,7 +45,7 @@ function cleanCopy(v: unknown, titleMax: number, descMax: number, credit: boolea
     title,
     // body, call to action, disclaimer (the public link goes right after it), then the data credit
     description: [desc, CTA, AI_NOTE, credit ? OFF_CREDIT : ""].filter(Boolean).join("\n\n"),
-    hashtags: normalizeHashtags(o.hashtags).slice(0, 10),
+    hashtags: normalizeHashtags(o.hashtags).slice(0, tagMax),
   };
 }
 
@@ -59,7 +59,7 @@ export function parseCopy(text: string, offCredit = false): CopyResult {
     tiktok: cleanCopy(data.tiktok, 100, 300, offCredit),
     instagram: cleanCopy(data.instagram, 100, 600, offCredit),
     // Older or sloppy answers may lack a YouTube block: fall back to the Instagram text.
-    youtube: cleanCopy(data.youtube ?? data.instagram, 100, 900, offCredit),
+    youtube: cleanCopy(data.youtube ?? data.instagram, 100, 900, offCredit, 25),
   };
 }
 
@@ -79,7 +79,7 @@ ${i.offFacts ? `- Open Food Facts: ${i.offFacts}\n` : ""}- Lowest scoring (score
 Return ONLY a JSON object, no markdown fences:
 {"tiktok": {"title": max 90 chars, "description": max 250 chars, "hashtags": 3 to 5 words without the # sign, mixing one or two broad tags with niche ones},
  "instagram": {"title": max 90 chars, "description": max 500 chars, "hashtags": 3 to 5 words without the # sign, mixing one or two broad tags with niche ones},
- "youtube": {"title": max 90 chars, searchable: the product name plus a plain hook such as "ingredients, honestly", "description": max 700 chars, first sentence is a keyword-rich summary of what the video shows, then 1-2 short lines of detail, "hashtags": 3 broad-to-niche words without the # sign}}
+ "youtube": {"title": max 90 chars, searchable: the product name plus a plain hook such as "ingredients, honestly", "description": max 700 chars, first sentence is a keyword-rich summary of what the video shows, then 1-2 short lines of detail, "hashtags": 18 to 20 words without the # sign, no duplicates, ordered most important first: broad (food, nutrition, healthyeating), topic (ingredients, foodlabel, nutriscore), and product-specific search terms. They are used as YouTube tags}}
 No medical or disease claims, no emoji spam.`;
 }
 

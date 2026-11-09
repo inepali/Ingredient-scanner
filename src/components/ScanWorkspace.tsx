@@ -989,7 +989,13 @@ export default function ScanWorkspace(props: StudioProps) {
                 <strong>{c.platform === "tiktok" ? "TikTok" : c.platform === "instagram" ? "Instagram" : "YouTube"}</strong>
                 <button
                   className="rounded-md border bg-white px-3 py-1 text-xs font-medium"
-                  onClick={() => copyText(c.platform, `${d.title}\n\n${withPublicLink(d.description, publicUrl)}\n\n${d.tags}`)}
+                  onClick={() =>
+                    copyText(
+                      c.platform,
+                      // YouTube ignores every hashtag when a description has more than 15, so only the first few go in the text.
+                      `${d.title}\n\n${withPublicLink(d.description, publicUrl)}\n\n${c.platform === "youtube" ? d.tags.split(/\s+/).filter(Boolean).slice(0, 4).join(" ") : d.tags}`,
+                    )
+                  }
                   aria-live="polite"
                 >
                   {copied === c.platform ? "Copied ✓" : "Copy all"}
@@ -1026,6 +1032,22 @@ export default function ScanWorkspace(props: StudioProps) {
                   className="w-full rounded-md border bg-white px-2 py-1.5"
                 />
               </label>
+              {c.platform === "youtube" && (
+                <div className="space-y-1 text-xs text-neutral-500">
+                  <p>
+                    {tagCount} tags. When you post from here, all of them are sent as hidden YouTube tags and only the first 4 (plus #Shorts) appear in the description, because YouTube ignores
+                    hashtags if a description has more than 15.
+                  </p>
+                  <button
+                    type="button"
+                    className="rounded-md border bg-white px-3 py-1 text-xs font-medium text-neutral-900"
+                    onClick={() => copyText("yt-tags", d.tags.split(/\s+/).filter(Boolean).map((t) => t.replace(/^#/, "")).join(", "))}
+                    aria-live="polite"
+                  >
+                    {copied === "yt-tags" ? "Copied ✓" : "Copy tags for YouTube Studio"}
+                  </button>
+                </div>
+              )}
               <button
                 className="rounded-md border bg-white px-3 py-1.5 text-sm disabled:opacity-40"
                 disabled={busy !== null || saved}

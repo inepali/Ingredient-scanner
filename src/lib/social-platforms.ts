@@ -402,13 +402,19 @@ export async function instagramAdvance(token: string, igId: string, containerId:
 
 // ---------- YouTube publishing ----------
 
-/** YouTube title (max 100), description (max 5000) and tags (max 500 characters in total). */
+/** Hashtags shown in the description. YouTube ignores ALL of them if there are more than 15, and shows the first 3 above the title. */
+export const YOUTUBE_DESCRIPTION_TAGS = 5;
+
+/**
+ * YouTube title (max 100), description (max 5000) and hidden tags (max 500 characters in total).
+ * Every hashtag becomes a hidden tag; only the first few are written into the description.
+ */
 export function youtubeMetadata(
   c: { title: string; description: string; hashtags: string[] },
   privacy: YouTubePrivacy,
 ) {
   const title = (c.title.trim() || "Ingredient check").slice(0, 100);
-  const tags = c.hashtags.map((h) => `#${h.replace(/^#/, "")}`);
+  const tags = c.hashtags.slice(0, YOUTUBE_DESCRIPTION_TAGS - 1).map((h) => `#${h.replace(/^#/, "")}`);
   if (!tags.some((t) => t.toLowerCase() === "#shorts")) tags.push("#Shorts");
   const description = [c.description.trim(), tags.join(" ")].filter(Boolean).join("\n\n").slice(0, 5000);
   const keywords: string[] = [];

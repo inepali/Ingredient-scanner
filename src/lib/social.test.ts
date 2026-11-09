@@ -128,6 +128,13 @@ test("Google tokens and YouTube metadata", () => {
   assert.equal(m.status.selfDeclaredMadeForKids, false);
   assert.match(m.snippet.description, /#a #b #Shorts/);
   assert.deepEqual(m.snippet.tags, ["a", "b"]);
+
+  // 20 hashtags: all become hidden tags, but only a few go in the description (YouTube drops them all above 15).
+  const many = Array.from({ length: 20 }, (_, i) => `tag${i}`);
+  const big = youtubeMetadata({ title: "t", description: "d", hashtags: many }, "private");
+  assert.equal(big.snippet.tags.length, 20);
+  assert.equal((big.snippet.description.match(/#/g) ?? []).length, 5);
+  assert.match(big.snippet.description, /#tag0 #tag1 #tag2 #tag3 #Shorts/);
 });
 
 test("public link sits between the disclaimer and the data credit", () => {

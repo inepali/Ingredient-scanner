@@ -225,6 +225,10 @@ test("parseCopy returns a YouTube block, falling back to Instagram's when the mo
   const withYt = parseCopy('{"tiktok": {"title": "t", "description": "d", "hashtags": []}, "instagram": {"title": "i", "description": "d", "hashtags": []}, "youtube": {"title": "Yt title", "description": "yd", "hashtags": ["#Food"]}}');
   assert.equal(withYt.youtube.title, "Yt title");
   assert.deepEqual(withYt.youtube.hashtags, ["food"]);
+  const tags = Array.from({ length: 30 }, (_, i) => `t${i}`);
+  const lots = parseCopy(JSON.stringify({ tiktok: { title: "t", hashtags: tags }, instagram: { title: "i", hashtags: tags }, youtube: { title: "y", hashtags: tags } }));
+  assert.equal(lots.youtube.hashtags.length, 25);
+  assert.equal(lots.tiktok.hashtags.length, 10);
   const without = parseCopy('{"tiktok": {"title": "t", "description": "d", "hashtags": []}, "instagram": {"title": "i", "description": "d", "hashtags": []}}');
   assert.equal(without.youtube.title, "i");
 });

@@ -49,7 +49,7 @@ export async function writeSocialCopy(db: SupabaseClient, scanId: string): Promi
   });
   result.tiktok.hashtags = mergeHashtags(result.tiktok.hashtags, curated);
   result.instagram.hashtags = mergeHashtags(result.instagram.hashtags, curated);
-  result.youtube.hashtags = mergeHashtags(result.youtube.hashtags, curated, 5);
+  result.youtube.hashtags = mergeHashtags(result.youtube.hashtags, curated, 20);
 
   await db.from("social_copy").delete().eq("scan_id", scanId);
   const saved = await db.from("social_copy").insert([
