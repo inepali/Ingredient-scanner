@@ -220,3 +220,11 @@ test("script prompt sets a hard 1-minute word budget", () => {
   assert.match(p, /55-62/);
   assert.equal(wordCount({ title: "t", scenes: [{ seconds: 5, visual: "v", voiceover: "one two three" }, { seconds: 5, visual: "v", voiceover: "four five" }] }), 5);
 });
+
+test("parseCopy returns a YouTube block, falling back to Instagram's when the model skips it", () => {
+  const withYt = parseCopy('{"tiktok": {"title": "t", "description": "d", "hashtags": []}, "instagram": {"title": "i", "description": "d", "hashtags": []}, "youtube": {"title": "Yt title", "description": "yd", "hashtags": ["#Food"]}}');
+  assert.equal(withYt.youtube.title, "Yt title");
+  assert.deepEqual(withYt.youtube.hashtags, ["food"]);
+  const without = parseCopy('{"tiktok": {"title": "t", "description": "d", "hashtags": []}, "instagram": {"title": "i", "description": "d", "hashtags": []}}');
+  assert.equal(without.youtube.title, "i");
+});

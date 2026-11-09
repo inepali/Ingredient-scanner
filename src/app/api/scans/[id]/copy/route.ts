@@ -6,7 +6,7 @@ import { HttpError, handler, json, paramId } from "@/lib/http";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// Rewrites the TikTok and Instagram title, description and hashtags.
+// Rewrites the TikTok, Instagram and YouTube title, description and hashtags.
 export const POST = handler(async (_req, ctx) => {
   const id = await paramId(ctx);
   try {
@@ -26,7 +26,7 @@ export const PATCH = handler(async (req, ctx) => {
     description?: unknown;
     hashtags?: unknown;
   };
-  if (body.platform !== "tiktok" && body.platform !== "instagram") throw new HttpError("Unknown platform.");
+  if (body.platform !== "tiktok" && body.platform !== "instagram" && body.platform !== "youtube") throw new HttpError("Unknown platform.");
 
   const title = typeof body.title === "string" ? body.title.trim() : "";
   const description = typeof body.description === "string" ? body.description.trim() : "";

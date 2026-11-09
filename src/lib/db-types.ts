@@ -41,7 +41,7 @@ export type JobRow = {
 };
 
 export type CopyRow = {
-  platform: "tiktok" | "instagram";
+  platform: "tiktok" | "instagram" | "youtube";
   title: string | null;
   description: string | null;
   hashtags: string[] | null;

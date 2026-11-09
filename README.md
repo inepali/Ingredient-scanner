@@ -133,3 +133,7 @@ The scan page has a bottom bar on phones: ← Back, the current step (tap it for
 ## TikTok post settings and "Try this instead"
 
 TikTok posts are always marked AI-generated (`is_aigc`, required for AI voice/clips) and you can pick the cover frame (seconds into the video; the score ring is on screen from the start, so the default 1s works). Comments, duets and stitches stay on. Hashtag suggestions are now 3–5. The script's outro includes a "Try this instead" tip: concrete label rules for a better version of the product, no brands.
+
+## Social copy tabs
+
+Social Copy has a tab each for TikTok, Instagram and YouTube. YouTube now gets its own searchable title, description and 3 hashtags (migration 0012); posting to YouTube uses that copy. Scans written before this fall back to the Instagram text until you press Regenerate.

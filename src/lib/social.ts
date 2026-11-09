@@ -6,7 +6,7 @@ import { offFactsLine, parseScript } from "./script.ts";
 export class NotReadyError extends Error {}
 
 /**
- * Writes the TikTok and Instagram title, description and hashtags for a scan
+ * Writes the TikTok, Instagram and YouTube title, description and hashtags for a scan
  * and saves them (replacing any earlier copy). Used by the Rewrite button and
  * automatically after a video is rendered.
  */
@@ -49,11 +49,13 @@ export async function writeSocialCopy(db: SupabaseClient, scanId: string): Promi
   });
   result.tiktok.hashtags = mergeHashtags(result.tiktok.hashtags, curated);
   result.instagram.hashtags = mergeHashtags(result.instagram.hashtags, curated);
+  result.youtube.hashtags = mergeHashtags(result.youtube.hashtags, curated, 5);
 
   await db.from("social_copy").delete().eq("scan_id", scanId);
   const saved = await db.from("social_copy").insert([
     { scan_id: scanId, platform: "tiktok", ...result.tiktok },
     { scan_id: scanId, platform: "instagram", ...result.instagram },
+    { scan_id: scanId, platform: "youtube", ...result.youtube },
   ]);
   if (saved.error) throw new Error(`Saving post copy failed: ${saved.error.message}`);
   await db.from("jobs").insert({ scan_id: scanId, step: "copy", status: "done" });

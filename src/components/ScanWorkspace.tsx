@@ -35,7 +35,7 @@ export type VoiceTake = {
 };
 
 export type StudioCopy = {
-  platform: "tiktok" | "instagram";
+  platform: "tiktok" | "instagram" | "youtube";
   title: string;
   description: string;
   hashtags: string[];
@@ -186,6 +186,7 @@ export default function ScanWorkspace(props: StudioProps) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ stage?: string; percent?: number } | null>(props.renderProgress);
   const [now, setNow] = useState(() => Date.now());
+  const [copyTab, setCopyTab] = useState<StudioCopy["platform"]>("tiktok");
   const [drafts, setDrafts] = useState<Record<string, { title: string; description: string; tags: string }>>({});
   function moveUpload(index: number, delta: number) {
     const ids = uploads.map((u) => u.id);
@@ -943,7 +944,7 @@ export default function ScanWorkspace(props: StudioProps) {
         ) : (
           <>
             <p className="text-sm text-neutral-500">
-              Happy with the video? Write the post text for TikTok and Instagram, then edit it as you like.
+              Happy with the video? Write the post text for TikTok, Instagram and YouTube, then edit each one in its tab.
             </p>
             <button
               className={btn}
@@ -960,7 +961,23 @@ export default function ScanWorkspace(props: StudioProps) {
           </>
         )}
 
-        {copy.map((c) => {
+        {copy.length > 0 && (
+          <div role="tablist" aria-label="Platform" className="flex gap-1 rounded-lg bg-neutral-100 p-1">
+            {(["tiktok", "instagram", "youtube"] as const).map((p) => (
+              <button
+                key={p}
+                role="tab"
+                aria-selected={copyTab === p}
+                onClick={() => setCopyTab(p)}
+                className={`min-h-10 flex-1 rounded-md px-2 text-sm ${copyTab === p ? "bg-white font-medium shadow-sm" : "text-neutral-600"}`}
+              >
+                {p === "tiktok" ? "TikTok" : p === "instagram" ? "Instagram" : "YouTube"}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {copy.filter((c) => c.platform === copyTab).map((c) => {
           const d = drafts[c.platform];
           if (!d) return null;
           const saved = d.title === c.title && d.description === c.description && d.tags === c.hashtags.map((h) => `#${h}`).join(" ");
@@ -969,7 +986,7 @@ export default function ScanWorkspace(props: StudioProps) {
           return (
             <div key={c.platform} className="space-y-2 rounded-md bg-neutral-50 p-3 text-sm">
               <div className="flex items-center justify-between">
-                <strong className="capitalize">{c.platform}</strong>
+                <strong>{c.platform === "tiktok" ? "TikTok" : c.platform === "instagram" ? "Instagram" : "YouTube"}</strong>
                 <button
                   className="rounded-md border bg-white px-3 py-1 text-xs font-medium"
                   onClick={() => copyText(c.platform, `${d.title}\n\n${withPublicLink(d.description, publicUrl)}\n\n${d.tags}`)}
@@ -1216,7 +1233,7 @@ export default function ScanWorkspace(props: StudioProps) {
           );
         })}
         <p className="text-xs text-neutral-500">
-          TikTok and YouTube keep posts from unapproved apps private. Instagram needs a Business or Creator account. YouTube uses your Instagram text for the title and description.
+          TikTok and YouTube keep posts from unapproved apps private. Instagram needs a Business or Creator account. YouTube uses its own title, description and hashtags from the Social Copy tab.
         </p>
       </section>
       </div>

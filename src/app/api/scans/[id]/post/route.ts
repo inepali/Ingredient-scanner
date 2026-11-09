@@ -42,11 +42,11 @@ export const POST = handler(async (req, ctx) => {
   const videoPath = video?.video_path as string | undefined;
   if (!videoPath) throw new HttpError("Render the final video first.");
 
-  // YouTube has no copy of its own: it reuses the Instagram text (longer), else TikTok's.
+  // YouTube uses its own copy; scans from before that existed fall back to the Instagram text, else TikTok's.
   const { data: copies } = await db.from("social_copy").select("platform, title, description, hashtags").eq("scan_id", id);
   const copy =
     platform === "youtube"
-      ? (copies ?? []).find((c) => c.platform === "instagram") ?? (copies ?? []).find((c) => c.platform === "tiktok")
+      ? (copies ?? []).find((c) => c.platform === "youtube") ?? (copies ?? []).find((c) => c.platform === "instagram") ?? (copies ?? []).find((c) => c.platform === "tiktok")
       : (copies ?? []).find((c) => c.platform === platform);
   if (!copy) throw new HttpError("Generate the social copy first.");
   // A public report page is linked right after the "not medical advice" line of the description.

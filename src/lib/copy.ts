@@ -1,9 +1,9 @@
 import { generateText } from "./llm.ts";
 
-// TikTok / Instagram titles, descriptions and hashtags for a scanned product.
+// TikTok / Instagram / YouTube titles, descriptions and hashtags for a scanned product.
 
 export type SocialCopy = { title: string; description: string; hashtags: string[] };
-export type CopyResult = { tiktok: SocialCopy; instagram: SocialCopy };
+export type CopyResult = { tiktok: SocialCopy; instagram: SocialCopy; youtube: SocialCopy };
 
 export const AI_NOTE = "Not medical advice.";
 export const CTA = "Do you eat this? Tell me in the comments.";
@@ -58,6 +58,8 @@ export function parseCopy(text: string, offCredit = false): CopyResult {
   return {
     tiktok: cleanCopy(data.tiktok, 100, 300, offCredit),
     instagram: cleanCopy(data.instagram, 100, 600, offCredit),
+    // Older or sloppy answers may lack a YouTube block: fall back to the Instagram text.
+    youtube: cleanCopy(data.youtube ?? data.instagram, 100, 900, offCredit),
   };
 }
 
@@ -65,7 +67,7 @@ function buildPrompt(i: CopyInput): string {
   const list = (items: { name: string; score: number }[]) =>
     items.map((x) => `${x.name} (${x.score})`).join(", ") || "none";
   const byScore = [...i.ingredients].sort((a, b) => a.score - b.score);
-  return `Write post copy for a TikTok and an Instagram Reel about a packaged food's ingredient scan.
+  return `Write post copy for a TikTok, an Instagram Reel and a YouTube Short about a packaged food's ingredient scan.
 
 Facts (use ONLY these; do not invent numbers, brands or health claims):
 - Product: ${i.productName ?? "unnamed product"}
@@ -76,7 +78,8 @@ ${i.offFacts ? `- Open Food Facts: ${i.offFacts}\n` : ""}- Lowest scoring (score
 
 Return ONLY a JSON object, no markdown fences:
 {"tiktok": {"title": max 90 chars, "description": max 250 chars, "hashtags": 3 to 5 words without the # sign, mixing one or two broad tags with niche ones},
- "instagram": {"title": max 90 chars, "description": max 500 chars, "hashtags": 3 to 5 words without the # sign, mixing one or two broad tags with niche ones}}
+ "instagram": {"title": max 90 chars, "description": max 500 chars, "hashtags": 3 to 5 words without the # sign, mixing one or two broad tags with niche ones},
+ "youtube": {"title": max 90 chars, searchable: the product name plus a plain hook such as "ingredients, honestly", "description": max 700 chars, first sentence is a keyword-rich summary of what the video shows, then 1-2 short lines of detail, "hashtags": 3 broad-to-niche words without the # sign}}
 No medical or disease claims, no emoji spam.`;
 }
 
