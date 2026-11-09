@@ -62,6 +62,10 @@ test("caption keeps hashtags and the 2200 limit", () => {
 
 test("TikTok init body uses one whole-file chunk", () => {
   const b = tiktokInitBody("cap", "SELF_ONLY", 1234);
+  assert.equal(b.post_info.is_aigc, true);
+  assert.equal(b.post_info.video_cover_timestamp_ms, 1000);
+  assert.equal(tiktokInitBody("c", "SELF_ONLY", 1, 2.5).post_info.video_cover_timestamp_ms, 2500);
+  assert.equal(tiktokInitBody("c", "SELF_ONLY", 1, 999).post_info.video_cover_timestamp_ms, 60000);
   assert.equal(b.source_info.source, "FILE_UPLOAD");
   assert.equal(b.source_info.chunk_size, 1234);
   assert.equal(b.source_info.total_chunk_count, 1);

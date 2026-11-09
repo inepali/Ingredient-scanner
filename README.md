@@ -129,3 +129,7 @@ Voice tab → **Your own lines**: keep a list of hooks, "what I did" lines or ca
 ## On your phone
 
 The scan page has a bottom bar on phones: ← Back, the current step (tap it for the full step list) and Next →. Fields are 16px so iOS doesn't zoom, and buttons are thumb-sized. It's also installable: open the site in Safari (Share → Add to Home Screen) or Chrome (⋮ → Install app) and it opens full-screen like an app. The manifest and icons stay public so the browser can read them without the password.
+
+## TikTok post settings and "Try this instead"
+
+TikTok posts are always marked AI-generated (`is_aigc`, required for AI voice/clips) and you can pick the cover frame (seconds into the video; the score ring is on screen from the start, so the default 1s works). Comments, duets and stitches stay on. Hashtag suggestions are now 3–5. The script's outro includes a "Try this instead" tip: concrete label rules for a better version of the product, no brands.

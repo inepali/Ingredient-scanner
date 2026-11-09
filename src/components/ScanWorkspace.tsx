@@ -243,6 +243,7 @@ export default function ScanWorkspace(props: StudioProps) {
   }
 
   const [privacy, setPrivacy] = useState("SELF_ONLY");
+  const [coverSeconds, setCoverSeconds] = useState("1");
   const [ytPrivacy, setYtPrivacy] = useState("private");
   const [copied, setCopied] = useState<string | null>(null);
   function copyText(key: string, text: string) {
@@ -1142,6 +1143,24 @@ export default function ScanWorkspace(props: StudioProps) {
                       </select>
                     </label>
                   )}
+                  {platform === "tiktok" && (
+                    <div className="space-y-1">
+                      <label className="flex items-center gap-2 text-xs text-neutral-500">
+                        Cover picture at
+                        <input
+                          type="number"
+                          min={0}
+                          max={60}
+                          step={0.5}
+                          value={coverSeconds}
+                          onChange={(e) => setCoverSeconds(e.target.value)}
+                          className="w-20 rounded-md border bg-white px-2 py-1 text-sm text-neutral-900"
+                        />
+                        seconds into the video
+                      </label>
+                      <p className="text-xs text-neutral-500">Marked as AI-generated (TikTok requires this for AI voice and clips). Comments, duets and stitches stay on.</p>
+                    </div>
+                  )}
                   <button
                     className={btn}
                     disabled={blocked || latest?.status === "processing"}
@@ -1151,7 +1170,7 @@ export default function ScanWorkspace(props: StudioProps) {
                         const r = await call<{ id: string; status: StudioPost["status"]; permalink?: string | null }>(`/api/scans/${scanId}/post`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ platform, privacy: platform === "youtube" ? ytPrivacy : privacy, again }),
+                          body: JSON.stringify({ platform, privacy: platform === "youtube" ? ytPrivacy : privacy, again, cover_seconds: Number(coverSeconds) || 1 }),
                         });
                         setPosts((cur) => [{ id: r.id, platform, status: r.status, permalink: r.permalink ?? null, error: null, privacy: null }, ...cur]);
                         return r.status === "published" ? `Posted to ${label}.` : `Sent to ${label}. It's being processed; this page will update.`;

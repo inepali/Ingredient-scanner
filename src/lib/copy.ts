@@ -75,8 +75,8 @@ ${i.offFacts ? `- Open Food Facts: ${i.offFacts}\n` : ""}- Lowest scoring (score
 - Highest scoring (score): ${list(byScore.slice(-2).reverse())}
 
 Return ONLY a JSON object, no markdown fences:
-{"tiktok": {"title": max 90 chars, "description": max 250 chars, "hashtags": 5 to 8 words without the # sign},
- "instagram": {"title": max 90 chars, "description": max 500 chars, "hashtags": 5 to 8 words without the # sign}}
+{"tiktok": {"title": max 90 chars, "description": max 250 chars, "hashtags": 3 to 5 words without the # sign, mixing one or two broad tags with niche ones},
+ "instagram": {"title": max 90 chars, "description": max 500 chars, "hashtags": 3 to 5 words without the # sign, mixing one or two broad tags with niche ones}}
 No medical or disease claims, no emoji spam.`;
 }
 

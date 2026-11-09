@@ -26,7 +26,7 @@ export const maxDuration = 120;
 export const POST = handler(async (req, ctx) => {
   requireGuard();
   const id = await paramId(ctx);
-  const body = (await req.json().catch(() => ({}))) as { platform?: string; privacy?: string; again?: boolean };
+  const body = (await req.json().catch(() => ({}))) as { platform?: string; privacy?: string; again?: boolean; cover_seconds?: number };
   if (!isPlatform(body.platform)) throw new HttpError("Unknown platform.");
   const platform = body.platform;
   const db = supabase();
@@ -85,7 +85,7 @@ export const POST = handler(async (req, ctx) => {
     privacy = body.privacy ?? "SELF_ONLY";
     if (!(TIKTOK_PRIVACY as readonly string[]).includes(privacy)) throw new HttpError("Unknown privacy setting.");
     const file = await getMedia("videos", videoPath);
-    remoteId = (await tiktokPost(token, file, caption, privacy as TikTokPrivacy)).publishId;
+    remoteId = (await tiktokPost(token, file, caption, privacy as TikTokPrivacy, Number(body.cover_seconds ?? 1))).publishId;
   } else if (platform === "youtube") {
     privacy = body.privacy ?? "private";
     if (!(YOUTUBE_PRIVACY as readonly string[]).includes(privacy)) throw new HttpError("Unknown privacy setting.");

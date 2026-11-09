@@ -119,13 +119,13 @@ STRUCTURE (in this order, 7 to 9 scenes, "seconds" adding up to about 60; the re
 2. "good" (1 or 2 scenes): choose 2 or 3 of the GOOD candidates. For each, say in plain words one health benefit it may offer ("may support digestion", "a source of protein"). Skip plain water or anything with nothing meaningful to say.
 3. "fair" (1 scene): choose 1 or 2 of the FAIR candidates and say honestly whether they help your health or not ("neutral", "fine in small amounts", "doesn't add much"). Be fair, not dramatic.
 4. "poor" (1 or 2 scenes): choose 2 or 3 of the POOR candidates. For each, explain the specific concern for your health in plain words (for example added sugar, a refined oil, a heavily processed additive) and why it matters. Say "may" where the science is not settled.
-5. "outro" (about 5 s): a one-line takeaway in words (no number), then finish with a short question that invites comments, such as "Do you eat this?". The very last words of the video MUST be a question.
+5. "outro" (about 8 s): a one-line takeaway in words (no number), then a "Try this instead" tip: tell people what to look for in a better version of this kind of product, as concrete label rules they can check in the shop ("look for one with five ingredients or fewer and no added sugar"). Name no brands and invent no numbers beyond simple label rules. Then finish with a short question that invites comments, such as "Do you eat this?". The very last words of the video MUST be a question.
 If a group is empty, skip it with one honest line (for example, "Honestly, I didn't find much green here.").
 
 KEEP PEOPLE WATCHING (retention hooks). Viewers tend to drop off around 10-15 seconds, so plant three hooks. Count time at about 2.5 spoken words per second:
 - Hook at about 0:15: the last sentence of the scene that ends near the 15-second mark is an open-loop teaser that makes people stay for what comes next, for example "But wait until you hear what's hiding in the next one." Name no ingredient and no number in the teaser itself.
 - Hook at about 0:35: the last sentence of the scene that ends near the 35-second mark is a second, stronger teaser pointing at the most concerning ingredient, which you save for after this point (put the worst POOR candidate in the final stretch). If nothing on the label is concerning, tease the one thing that surprised you.
-- Closing hook: end the "outro" with the takeaway, a nudge to comment, and the final question from rule 5.
+- Closing hook: end the "outro" with the takeaway, the "Try this instead" tip, a nudge to comment, and the final question from rule 5.
 Pay each teaser off within the next 10-20 seconds. A teaser must never promise something the video does not deliver, and must not be clickbait, a scare tactic or a numeric score. Plan the scene lengths so a scene boundary lands near 0:15 and near 0:35.
 ${
     photoCount

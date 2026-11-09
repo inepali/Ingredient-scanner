@@ -277,9 +277,19 @@ export function buildCaption(c: { title: string; description: string; hashtags: 
 
 export type TikTokInit = { publishId: string };
 
-export function tiktokInitBody(caption: string, privacy: TikTokPrivacy, size: number) {
+/** coverSeconds: which moment of the video becomes the thumbnail. The video uses an AI voice, so it is always labelled as AI-generated, as TikTok requires. */
+export function tiktokInitBody(caption: string, privacy: TikTokPrivacy, size: number, coverSeconds = 1) {
+  const cover = Number.isFinite(coverSeconds) ? Math.min(60, Math.max(0, coverSeconds)) : 1;
   return {
-    post_info: { title: caption, privacy_level: privacy, disable_duet: false, disable_comment: false, disable_stitch: false },
+    post_info: {
+      title: caption,
+      privacy_level: privacy,
+      disable_duet: false,
+      disable_comment: false,
+      disable_stitch: false,
+      is_aigc: true,
+      video_cover_timestamp_ms: Math.round(cover * 1000),
+    },
     // One chunk covering the whole file (allowed up to 64 MB).
     source_info: { source: "FILE_UPLOAD", video_size: size, chunk_size: size, total_chunk_count: 1 },
   };
@@ -295,7 +305,7 @@ export async function tiktokCreatorOptions(token: string): Promise<{ privacy: st
   return { privacy: data.privacy_level_options ?? [], nickname: data.creator_nickname ?? null };
 }
 
-export async function tiktokPost(token: string, video: Buffer, caption: string, privacy: TikTokPrivacy): Promise<TikTokInit> {
+export async function tiktokPost(token: string, video: Buffer, caption: string, privacy: TikTokPrivacy, coverSeconds = 1): Promise<TikTokInit> {
   const opts = await tiktokCreatorOptions(token);
   if (opts.privacy.length && !opts.privacy.includes(privacy)) {
     throw new Error(`TikTok doesn't allow "${privacy}" for this account right now. Allowed: ${opts.privacy.join(", ")}.`);
@@ -303,7 +313,7 @@ export async function tiktokPost(token: string, video: Buffer, caption: string, 
   const res = await fetch("https://open.tiktokapis.com/v2/post/publish/video/init/", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json; charset=UTF-8" },
-    body: JSON.stringify(tiktokInitBody(caption, privacy, video.length)),
+    body: JSON.stringify(tiktokInitBody(caption, privacy, video.length, coverSeconds)),
   });
   const body = await readJson(res, "TikTok upload start");
   const data = (body.data ?? {}) as { publish_id?: string; upload_url?: string };
