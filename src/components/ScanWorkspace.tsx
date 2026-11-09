@@ -135,8 +135,14 @@ export default function ScanWorkspace(props: StudioProps) {
     if (TABS.some((t) => t.id === id)) setTab(id as TabId);
   }, []);
 
+  // Phone: a bottom stepper (Back / step picker / Next) replaces the tab strip.
+  const [stepsOpen, setStepsOpen] = useState(false);
+  const tabIndex = TABS.findIndex((t) => t.id === tab);
+
   function selectTab(id: TabId, focus = false) {
     setTab(id);
+    setStepsOpen(false);
+    if (window.matchMedia("(max-width: 767px)").matches) window.scrollTo({ top: 0 });
     try {
       window.history.replaceState(null, "", `#${id}`);
     } catch {
@@ -394,7 +400,7 @@ export default function ScanWorkspace(props: StudioProps) {
           role="tablist"
           aria-orientation="vertical"
           aria-label="Scan steps"
-          className="-mx-1 flex gap-1 overflow-x-auto border-b px-1 md:mx-0 md:flex-col md:gap-0.5 md:overflow-visible md:border-b-0 md:px-0"
+          className="-mx-1 hidden gap-1 overflow-x-auto border-b px-1 md:mx-0 md:flex md:flex-col md:gap-0.5 md:overflow-visible md:border-b-0 md:px-0"
         >
           {TABS.map((t, i) => {
             const active = tab === t.id;
@@ -1195,6 +1201,63 @@ export default function ScanWorkspace(props: StudioProps) {
         </p>
       </section>
       </div>
+      </div>
+
+      {/* Phone only: pick a step from a sheet, or step Back / Next with big thumb-sized buttons. */}
+      {stepsOpen && (
+        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setStepsOpen(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <ul
+            role="menu"
+            aria-label="Steps"
+            className="absolute inset-x-0 bottom-0 max-h-[75vh] space-y-1 overflow-y-auto rounded-t-2xl bg-white p-3 pb-28 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {TABS.map((t, i) => {
+              const st = tabStatus[t.id];
+              return (
+                <li key={t.id}>
+                  <button
+                    role="menuitem"
+                    onClick={() => selectTab(t.id)}
+                    className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-base ${t.id === tab ? "bg-neutral-900 font-medium text-white" : "active:bg-neutral-100"}`}
+                  >
+                    <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${st === "done" ? "bg-green-600 text-white" : "bg-neutral-200 text-neutral-700"}`}>
+                      {st === "done" ? "✓" : i + 1}
+                    </span>
+                    <span className="flex-1">{t.label}</span>
+                    {st === "busy" && <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" aria-label="in progress" />}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+      <div className="fixed inset-x-0 bottom-0 z-50 flex items-center gap-2 border-t bg-white/95 px-3 pt-2 pb-safe backdrop-blur md:hidden">
+        <button
+          className="min-h-12 min-w-12 rounded-xl border text-lg disabled:opacity-30"
+          disabled={tabIndex <= 0}
+          onClick={() => selectTab(TABS[tabIndex - 1].id)}
+          aria-label="Previous step"
+        >
+          ←
+        </button>
+        <button
+          className="min-h-12 flex-1 rounded-xl border px-3 text-base font-medium"
+          aria-expanded={stepsOpen}
+          onClick={() => setStepsOpen((o) => !o)}
+        >
+          {TABS[tabIndex]?.label} <span className="font-normal text-neutral-500">· {tabIndex + 1}/{TABS.length} ▴</span>
+        </button>
+        <button
+          className="min-h-12 min-w-12 rounded-xl bg-neutral-900 text-lg text-white disabled:opacity-30"
+          disabled={tabIndex >= TABS.length - 1}
+          onClick={() => selectTab(TABS[tabIndex + 1].id)}
+          aria-label="Next step"
+        >
+          →
+        </button>
       </div>
       </div>
     </div>

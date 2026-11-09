@@ -125,3 +125,7 @@ When Open Food Facts has them for the scanned product, the video shows a dark pi
 ## Your own lines (Voice tab)
 
 Voice tab → **Your own lines**: keep a list of hooks, "what I did" lines or catchphrases, pick where each is said (start, middle, or just before the closing question) and tick the ones to use. They are woven into the script as extra scenes when you generate a take, so captions and pictures follow. The list is saved in `settings.custom_lines` (migration 0011) and reused on every scan.
+
+## On your phone
+
+The scan page has a bottom bar on phones: ← Back, the current step (tap it for the full step list) and Next →. Fields are 16px so iOS doesn't zoom, and buttons are thumb-sized. It's also installable: open the site in Safari (Share → Add to Home Screen) or Chrome (⋮ → Install app) and it opens full-screen like an app. The manifest and icons stay public so the browser can read them without the password.

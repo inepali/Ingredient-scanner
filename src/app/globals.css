@@ -3,3 +3,33 @@
 body {
   @apply bg-neutral-50 text-neutral-900 antialiased;
 }
+
+/* Space under the phone step bar, clear of the home indicator. */
+.pb-safe {
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+}
+
+/* Phones: 16px fields stop iOS zooming in on focus, and controls are big enough for a thumb.
+   In a layer so Tailwind utilities (min-h-12, etc.) still win. */
+@layer base {
+  @media (max-width: 767px) {
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea {
+      font-size: 16px;
+      min-height: 2.75rem;
+    }
+    button {
+      min-height: 2.5rem;
+    }
+    input[type="checkbox"],
+    input[type="radio"] {
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+    body {
+      -webkit-tap-highlight-color: transparent;
+      overflow-x: hidden;
+    }
+  }
+}
