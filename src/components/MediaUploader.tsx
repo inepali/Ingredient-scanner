@@ -80,8 +80,8 @@ export default function MediaUploader({
   const products = media.filter((m) => m.kind === "product_image");
 
   const btn = "rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50";
-  const primary = `${btn} bg-neutral-900 text-white`;
-  const secondary = `${btn} border border-neutral-300 bg-white text-neutral-900`;
+  const primary = `${btn} bg-accent text-white`;
+  const secondary = `${btn} bg-neutral-100 text-neutral-900`;
 
   function pickers(kind: MediaItem["kind"], disabled: boolean, multiple: boolean) {
     const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {

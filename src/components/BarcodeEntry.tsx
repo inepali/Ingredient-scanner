@@ -146,7 +146,7 @@ export default function BarcodeEntry({ scanId, onFound }: { scanId: string; onFo
           {busy ? "Looking up…" : "Look up"}
         </button>
         {canScan && !scanning && (
-          <button type="button" disabled={busy} onClick={() => void startCamera()} className="rounded-xl bg-neutral-100 px-4 py-2 text-sm">
+          <button type="button" disabled={busy} onClick={() => void startCamera()} className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-40">
             Use camera
           </button>
         )}
