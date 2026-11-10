@@ -1,7 +1,30 @@
 @import "tailwindcss";
 
-body {
-  @apply bg-neutral-50 text-neutral-900 antialiased;
+/* Native look: iOS-style system font, grouped grey background, white rounded cards, blue accent. */
+@theme {
+  --color-accent: #007aff;
+  --color-accent-soft: #e5f1ff;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: rgb(60 60 67 / 0.16);
+  }
+  body {
+    @apply bg-[#f2f2f7] font-sans text-[#1c1c1e] antialiased;
+  }
+  /* Native press feedback on touch screens. */
+  @media (hover: none) {
+    button:not(:disabled):active,
+    a:active,
+    [role="tab"]:active,
+    [role="menuitem"]:active {
+      opacity: 0.55;
+    }
+  }
 }
 
 /* Space under the phone step bar, clear of the home indicator. */

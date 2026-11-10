@@ -52,9 +52,9 @@ export default function ProductName({ scanId, initial }: { scanId: string; initi
             maxLength={120}
             placeholder="Product name, e.g. Oreo Original"
             aria-label="Product name"
-            className="w-full min-w-0 rounded-md border px-3 py-1.5 text-lg"
+            className="w-full min-w-0 rounded-xl bg-neutral-100 px-3 py-1.5 text-lg"
           />
-          <button type="submit" disabled={saving || !name.trim()} className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white disabled:opacity-40">
+          <button type="submit" disabled={saving || !name.trim()} className="rounded-xl bg-accent px-3 py-1.5 text-sm text-white disabled:opacity-40">
             {saving ? "Saving…" : "Save"}
           </button>
           {editing && (

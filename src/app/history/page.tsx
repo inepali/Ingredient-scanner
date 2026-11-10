@@ -1,4 +1,5 @@
 import Link from "next/link";
+import LargeTitle from "@/components/LargeTitle";
 import AppShell from "@/components/AppShell";
 import { supabase } from "@/lib/supabase";
 import DeleteScanButton from "@/components/DeleteScanButton";
@@ -46,38 +47,38 @@ export default async function HistoryPage() {
   return (
     <AppShell>
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Scan history</h1>
-        {average !== null && (
-          <p className="text-neutral-600">
-            {scans.length} {scans.length === 1 ? "scan" : "scans"} · average score{" "}
-            <strong>{average}</strong>/100
-          </p>
-        )}
-      </header>
+      <LargeTitle
+        title="History"
+        subtitle={
+          average !== null ? (
+            <>
+              {scans.length} {scans.length === 1 ? "scan" : "scans"} · average score <strong className="text-neutral-700">{average}</strong>/100
+            </>
+          ) : undefined
+        }
+      />
 
       {scans.length === 0 ? (
         <p className="text-neutral-600">No scans yet. Scan a label to see it here.</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y overflow-hidden rounded-2xl bg-white">
           {scans.map((s) => {
             const band = bandFor(s.overall_score);
             return (
-              <li key={s.id} className="flex flex-wrap items-center gap-2">
-                <Link
-                  href={`/scans/${s.id}`}
-                  className="flex min-w-0 flex-1 items-center justify-between gap-4 rounded-lg border bg-white p-3 hover:bg-neutral-50"
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate font-medium">{s.product_name ?? "Scanned product"}</span>
-                    <span className="block text-xs text-neutral-500">
-                      {new Date(s.created_at).toLocaleString()}
+              <li key={s.id} className="flex items-center gap-1 pr-2">
+                <Link href={`/scans/${s.id}`} className="flex min-h-16 min-w-0 flex-1 items-center gap-3 px-4 py-2.5 active:bg-neutral-100">
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold tabular-nums text-white ${BAND_BADGE[band]}`}>
+                    {s.overall_score}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[17px] font-medium">{s.product_name ?? "Scanned product"}</span>
+                    <span className="block text-[13px] text-neutral-500">
+                      {BAND_LABEL[band]} · {new Date(s.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                     </span>
                   </span>
-                  <span className="flex shrink-0 items-center gap-2 text-sm tabular-nums">
-                    <span className={`h-2.5 w-2.5 rounded-full ${BAND_BADGE[band]}`} />
-                    {s.overall_score} · {BAND_LABEL[band]}
-                  </span>
+                  <svg viewBox="0 0 8 14" className="h-3.5 w-2 shrink-0 text-neutral-300" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="m1 1 6 6-6 6" />
+                  </svg>
                 </Link>
                 <DeleteScanButton scanId={s.id} name={s.product_name} after="refresh" />
               </li>

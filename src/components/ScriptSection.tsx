@@ -89,7 +89,7 @@ export default function ScriptSection({
           value={tone}
           onChange={(e) => pickTone(e.target.value as Tone)}
           disabled={busy}
-          className="w-full rounded-md border bg-white px-2 py-2 text-sm"
+          className="w-full rounded-xl bg-neutral-100 px-2 py-2 text-sm"
         >
           {(Object.keys(TONES) as Tone[]).map((t) => (
             <option key={t} value={t}>
@@ -105,7 +105,7 @@ export default function ScriptSection({
           <p className="font-medium">{initial.title}</p>
           <ol className="space-y-3">
             {initial.scenes.map((s, i) => (
-              <li key={i} className="rounded-lg border bg-white p-3 text-sm">
+              <li key={i} className="rounded-2xl bg-white p-3 text-sm">
                 <p className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
                   {s.section && SECTION_CHIP[s.section] && (
                     <span className={`rounded-full px-2 py-0.5 font-medium ${SECTION_CHIP[s.section].cls}`}>

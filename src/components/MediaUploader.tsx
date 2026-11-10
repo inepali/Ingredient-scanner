@@ -79,7 +79,7 @@ export default function MediaUploader({
   const label = media.find((m) => m.kind === "label");
   const products = media.filter((m) => m.kind === "product_image");
 
-  const btn = "rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50";
+  const btn = "rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50";
   const primary = `${btn} bg-neutral-900 text-white`;
   const secondary = `${btn} border border-neutral-300 bg-white text-neutral-900`;
 
@@ -120,7 +120,7 @@ export default function MediaUploader({
         {label && (
           <div className="relative">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={label.url} alt="Ingredient label" className="max-h-72 w-full rounded-lg border bg-white object-contain" />
+            <img src={label.url} alt="Ingredient label" className="max-h-72 w-full rounded-2xl bg-white object-contain" />
             <button onClick={() => remove(label.id)} className="absolute right-2 top-2 rounded bg-black/70 px-2 py-1 text-xs text-white">
               Remove
             </button>
@@ -138,7 +138,7 @@ export default function MediaUploader({
             {products.map((p) => (
               <li key={p.id} className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.url} alt="Product" className="aspect-square w-full rounded-lg border bg-white object-cover" />
+                <img src={p.url} alt="Product" className="aspect-square w-full rounded-2xl bg-white object-cover" />
                 <button onClick={() => remove(p.id)} aria-label="Remove photo" className="absolute right-1 top-1 rounded bg-black/70 px-1.5 text-xs text-white">
                   ✕
                 </button>
@@ -160,7 +160,7 @@ export default function MediaUploader({
       )}
 
       {busy && <p className="text-sm text-neutral-500">Uploading…</p>}
-      {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     </div>
   );
 }

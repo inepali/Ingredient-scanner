@@ -12,6 +12,7 @@ import { isMock } from "@/lib/mock";
 import { mediaUrl, mediaUrls, type MediaBucket } from "@/lib/storage";
 import { isRenderStale } from "@/lib/render";
 import type { CopyRow, JobRow, MediaRow, VoiceoverRow } from "@/lib/db-types";
+import NavBar from "@/components/NavBar";
 import ScanWorkspace, { type StudioCopy, type StudioPost, type StudioMedia, type VoiceTake } from "@/components/ScanWorkspace";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +45,7 @@ type Ingredient = {
 
 function Badge({ label, value }: { label: string; value: string }) {
   return (
-    <span className="rounded-md border px-2 py-1">
+    <span className="rounded-xl bg-neutral-100 px-2 py-1">
       <span className="text-neutral-500">{label} </span>
       <strong>{value}</strong>
     </span>
@@ -206,7 +207,7 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
   const ingredientsPanel = (
     <div className="space-y-6">
       {off && (
-        <section className="space-y-2 rounded-xl border bg-white p-4 text-sm">
+        <section className="space-y-2 rounded-2xl bg-white p-4 text-sm">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="font-medium">Cross-checked with Open Food Facts</h2>
             <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
@@ -247,7 +248,7 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
         <h2 className="mb-3 text-lg font-medium">Ingredients ({ingredients.length})</h2>
         <ol className="space-y-3">
           {ingredients.map((ing) => (
-            <li key={ing.id} className="rounded-lg border bg-white p-3">
+            <li key={ing.id} className="rounded-2xl bg-white p-3">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="font-medium">
                   {ing.position}. {ing.raw_name}
@@ -271,9 +272,10 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
   );
 
   return (
-    <div className="space-y-8" data-wide>
+    <div className="space-y-6" data-wide>
+      <NavBar title={scan.product_name ?? "Scan"} />
 
-      <header className="flex items-center gap-6">
+      <header className="flex items-center gap-5 rounded-2xl bg-white p-4 md:gap-6 md:bg-transparent md:p-0">
         <ScoreRing score={overall} />
         <div className="space-y-1">
           <ProductName scanId={id} initial={scan.product_name} />

@@ -41,7 +41,7 @@ export default function DeleteScanButton({
   if (!asking) {
     return (
       <button
-        className="shrink-0 rounded-md border px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+        className="shrink-0 rounded-xl px-3 py-2 text-sm font-medium text-red-600 active:bg-red-50"
         onClick={() => setAsking(true)}
         aria-label={`Delete ${name ?? "this scan"}`}
       >
@@ -53,10 +53,10 @@ export default function DeleteScanButton({
     <div className="shrink-0 space-y-1 text-sm" role="alertdialog" aria-label="Confirm delete">
       <p className="text-neutral-700">Delete {name ? `“${name}”` : "this scan"} and its photos, audio and videos?</p>
       <div className="flex gap-2">
-        <button className="rounded-md bg-red-600 px-3 py-1.5 text-white disabled:opacity-40" disabled={busy} onClick={() => void remove()}>
+        <button className="rounded-xl bg-red-600 px-3 py-1.5 text-white disabled:opacity-40" disabled={busy} onClick={() => void remove()}>
           {busy ? "Deleting…" : "Yes, delete"}
         </button>
-        <button className="rounded-md border px-3 py-1.5" disabled={busy} onClick={() => setAsking(false)}>
+        <button className="rounded-xl bg-neutral-100 px-3 py-1.5" disabled={busy} onClick={() => setAsking(false)}>
           Cancel
         </button>
       </div>

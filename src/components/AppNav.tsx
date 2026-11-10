@@ -27,7 +27,7 @@ export default function AppNav({ scanId }: { scanId?: string }) {
   const onNew = path === "/" || path.startsWith("/new");
   const onHistory = path.startsWith("/history");
   const cls = (active: boolean) =>
-    `${link} ${active ? "bg-neutral-900 font-medium text-white" : "text-neutral-600 hover:text-neutral-900 md:hover:bg-neutral-100"}`;
+    `${link} ${active ? "bg-accent font-medium text-white" : "text-neutral-600 hover:text-neutral-900 md:hover:bg-neutral-100"}`;
 
   return (
     <div className={`mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm md:mb-3 md:flex-col md:items-stretch md:gap-0.5 ${scanId ? "md:border-b md:pb-3" : ""}`}>

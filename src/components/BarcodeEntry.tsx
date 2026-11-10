@@ -112,7 +112,7 @@ export default function BarcodeEntry({ scanId, onFound }: { scanId: string; onFo
   }
 
   return (
-    <section className="space-y-3 rounded-lg border bg-white p-4">
+    <section className="space-y-3 rounded-2xl bg-white p-4">
       <div>
         <p className="font-medium">Scan the barcode instead</p>
         <p className="text-sm text-neutral-600">
@@ -122,7 +122,7 @@ export default function BarcodeEntry({ scanId, onFound }: { scanId: string; onFo
 
       {scanning && (
         <div className="space-y-2">
-          <video ref={videoRef} playsInline muted className="aspect-video w-full rounded-md bg-black object-cover" />
+          <video ref={videoRef} playsInline muted className="aspect-video w-full rounded-xl bg-black object-cover" />
           <button className="text-sm underline" onClick={stop}>Cancel</button>
         </div>
       )}
@@ -140,13 +140,13 @@ export default function BarcodeEntry({ scanId, onFound }: { scanId: string; onFo
           inputMode="numeric"
           placeholder="Digits under the barcode"
           aria-label="Barcode number"
-          className="min-w-0 flex-1 rounded-md border px-3 py-2"
+          className="min-w-0 flex-1 rounded-xl bg-neutral-100 px-3 py-2"
         />
-        <button type="submit" disabled={busy || code.replace(/\D/g, "").length < 8} className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40">
+        <button type="submit" disabled={busy || code.replace(/\D/g, "").length < 8} className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-40">
           {busy ? "Looking up…" : "Look up"}
         </button>
         {canScan && !scanning && (
-          <button type="button" disabled={busy} onClick={() => void startCamera()} className="rounded-md border px-4 py-2 text-sm">
+          <button type="button" disabled={busy} onClick={() => void startCamera()} className="rounded-xl bg-neutral-100 px-4 py-2 text-sm">
             Use camera
           </button>
         )}
@@ -158,19 +158,19 @@ export default function BarcodeEntry({ scanId, onFound }: { scanId: string; onFo
       )}
 
       {found && (
-        <p className="rounded-md bg-green-50 p-3 text-sm text-green-800">
+        <p className="rounded-xl bg-green-50 p-3 text-sm text-green-800">
           Found {found.name ? <strong>{found.name}</strong> : "the product"}
           {found.brands ? ` (${found.brands.split(",")[0]})` : ""}, barcode {found.barcode}. Ready to analyze.
         </p>
       )}
       {found?.ingredients && (
-        <div className="space-y-1 rounded-md bg-neutral-50 p-3 text-sm">
+        <div className="space-y-1 rounded-xl bg-neutral-50 p-3 text-sm">
           <p className="text-xs font-medium text-neutral-500">Ingredients from Open Food Facts</p>
           <p className="text-neutral-700">{found.ingredients}</p>
           <p className="text-xs text-neutral-400">Crowd-sourced, so check it against the pack if something looks off.</p>
         </div>
       )}
-      {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     </section>
   );
 }

@@ -1,14 +1,12 @@
 import AppShell from "@/components/AppShell";
+import LargeTitle from "@/components/LargeTitle";
 import StartScan from "@/components/StartScan";
 
 export default function Home() {
   return (
     <AppShell>
       <div className="space-y-6">
-        <header className="space-y-1">
-          <h1 className="text-2xl font-semibold">Ingredient Scanner</h1>
-          <p className="text-neutral-600">Photo of the ingredient list in, 0–100 health report out.</p>
-        </header>
+        <LargeTitle title="Scan" subtitle="Photo of the ingredient list in, 0–100 health report out." />
         <StartScan />
       </div>
     </AppShell>

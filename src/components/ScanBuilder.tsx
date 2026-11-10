@@ -39,7 +39,7 @@ export default function ScanBuilder({ scanId }: { scanId: string }) {
 
   return (
     <div className="space-y-8">
-      <section className="flex items-center gap-4 rounded-lg border bg-white p-4">
+      <section className="flex items-center gap-4 rounded-2xl bg-white p-4">
         {qr ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={qr.image} alt="QR code to upload photos from your phone" className="h-32 w-32 shrink-0" />
@@ -63,12 +63,12 @@ export default function ScanBuilder({ scanId }: { scanId: string }) {
 
       <BarcodeEntry scanId={scanId} onFound={() => setHasBarcode(true)} />
 
-      {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       <button
         onClick={analyze}
         disabled={!(hasLabel || hasBarcode) || busy}
-        className="w-full rounded-md bg-neutral-900 px-4 py-3 font-medium text-white disabled:opacity-40"
+        className="w-full rounded-xl bg-accent px-4 py-3 font-medium text-white disabled:opacity-40"
       >
         {busy ? "Analyzing… usually 10–20 seconds" : hasBarcode && !hasLabel ? "Analyze product" : "Analyze label"}
       </button>

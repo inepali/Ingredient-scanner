@@ -71,7 +71,7 @@ export default async function PublicScanPage({ params }: { params: Promise<{ id:
       </header>
 
       {off && (off.nutriscore || off.nova || off.green) && (
-        <section className="space-y-1 rounded-xl border bg-white p-4 text-sm">
+        <section className="space-y-1 rounded-2xl bg-white p-4 text-sm">
           <p className="font-medium">Also checked against Open Food Facts</p>
           <p className="text-neutral-600">
             {[
@@ -91,7 +91,7 @@ export default async function PublicScanPage({ params }: { params: Promise<{ id:
           {ingredients.map((ing) => {
             const b = bandFor(ing.score);
             return (
-              <li key={ing.position} className="rounded-lg border bg-white p-3">
+              <li key={ing.position} className="rounded-2xl bg-white p-3">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="font-medium capitalize">{ing.raw_name}</span>
                   <span className="shrink-0 text-sm tabular-nums text-neutral-600">

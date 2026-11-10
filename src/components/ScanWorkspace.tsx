@@ -119,8 +119,8 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 const btn =
-  "rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40";
-const card = "space-y-3 rounded-xl border bg-white p-4";
+  "rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40";
+const card = "space-y-3 rounded-2xl bg-white p-4";
 
 export default function ScanWorkspace(props: StudioProps) {
   const { ingredients, scriptPanel, scanId, media, hasScript, audioUrl, voiceTakes, copy, pendingJobs, maxClips, mock, videoUrl, downloadUrl, renderJobId, renderError, renderStartedAt, social } = props;
@@ -388,16 +388,18 @@ export default function ScanWorkspace(props: StudioProps) {
   return (
     <div className="space-y-6">
       {mock && (
-        <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+        <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
           Mock mode is on: voice is silent and clips reuse your photos. Nothing paid is called.
         </p>
       )}
-      {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      {notice && <p className="rounded-md bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
+      {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {notice && <p className="rounded-xl bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
 
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-8">
       <nav aria-label="Scan steps" className="md:sticky md:top-6 md:w-52 md:shrink-0">
-        <AppNav scanId={scanId} />
+        <div className="hidden md:block">
+          <AppNav scanId={scanId} />
+        </div>
         <div
           role="tablist"
           aria-orientation="vertical"
@@ -422,7 +424,7 @@ export default function ScanWorkspace(props: StudioProps) {
                 onKeyDown={(e) => onTabKey(e, i)}
                 className={`-mb-px flex shrink-0 items-center gap-2.5 whitespace-nowrap border-b-2 px-3 py-2 text-left text-sm md:mb-0 md:w-full md:rounded-lg md:border-b-0 md:py-2.5 ${
                   active
-                    ? "border-neutral-900 font-medium text-neutral-900 md:bg-neutral-900 md:text-white"
+                    ? "border-accent font-medium text-accent md:bg-accent md:text-white"
                     : "border-transparent text-neutral-500 hover:text-neutral-800 md:hover:bg-neutral-100"
                 }`}
               >
@@ -468,7 +470,7 @@ export default function ScanWorkspace(props: StudioProps) {
                 value={voiceId}
                 onChange={(e) => setVoiceId(e.target.value)}
                 disabled={busy !== null}
-                className="w-full rounded-md border px-2 py-2"
+                className="w-full rounded-xl bg-neutral-100 px-2 py-2"
               >
                 {voices.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -488,7 +490,7 @@ export default function ScanWorkspace(props: StudioProps) {
                 onChange={(e) => setVoiceId(e.target.value.trim())}
                 placeholder="e.g. from elevenlabs.io > Voices"
                 disabled={busy !== null}
-                className="w-full rounded-md border px-2 py-2"
+                className="w-full rounded-xl bg-neutral-100 px-2 py-2"
               />
             </label>
           )}
@@ -498,7 +500,7 @@ export default function ScanWorkspace(props: StudioProps) {
               value={delivery}
               onChange={(e) => setDelivery(e.target.value as Delivery)}
               disabled={busy !== null}
-              className="w-full rounded-md border px-2 py-2"
+              className="w-full rounded-xl bg-neutral-100 px-2 py-2"
             >
               {(Object.keys(DELIVERIES) as Delivery[]).map((d) => (
                 <option key={d} value={d}>
@@ -515,7 +517,7 @@ export default function ScanWorkspace(props: StudioProps) {
         </p>
         {voiceError && <p className="text-xs text-amber-700">{voiceError}</p>}
 
-        <div className="space-y-2 rounded-lg border bg-neutral-50 p-3">
+        <div className="space-y-2 rounded-2xl bg-neutral-50 p-3">
           <h4 className="text-sm font-medium">Your own lines</h4>
           <p className="text-xs text-neutral-500">
             Add a hook, something you did, or a catchphrase. Ticked lines are spoken in the next take at the spot you choose, with captions
@@ -539,13 +541,13 @@ export default function ScanWorkspace(props: StudioProps) {
                       if (text === l.text) return;
                       saveLines(text ? lines.map((x) => (x.id === l.id ? { ...x, text } : x)) : lines.filter((x) => x.id !== l.id));
                     }}
-                    className="min-w-[12rem] flex-1 rounded-md border bg-white px-2 py-1 text-sm"
+                    className="min-w-[12rem] flex-1 rounded-xl bg-neutral-100 px-2 py-1 text-sm"
                   />
                   <select
                     value={l.position}
                     aria-label="Where to say it"
                     onChange={(e) => saveLines(lines.map((x) => (x.id === l.id ? { ...x, position: e.target.value as LinePosition } : x)))}
-                    className="rounded-md border bg-white px-2 py-1 text-xs"
+                    className="rounded-xl bg-neutral-100 px-2 py-1 text-xs"
                   >
                     {POSITIONS.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -566,9 +568,9 @@ export default function ScanWorkspace(props: StudioProps) {
               onChange={(e) => setNewLine(e.target.value)}
               maxLength={220}
               placeholder="e.g. I checked 20 snack bars so you don't have to."
-              className="min-w-[12rem] flex-1 rounded-md border bg-white px-2 py-1 text-sm"
+              className="min-w-[12rem] flex-1 rounded-xl bg-neutral-100 px-2 py-1 text-sm"
             />
-            <select value={newPos} onChange={(e) => setNewPos(e.target.value as LinePosition)} className="rounded-md border bg-white px-2 py-1 text-xs">
+            <select value={newPos} onChange={(e) => setNewPos(e.target.value as LinePosition)} className="rounded-xl bg-neutral-100 px-2 py-1 text-xs">
               {POSITIONS.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.label}
@@ -577,7 +579,7 @@ export default function ScanWorkspace(props: StudioProps) {
             </select>
             <button
               type="button"
-              className="rounded-md border bg-white px-3 py-1 text-sm"
+              className="rounded-xl bg-neutral-100 px-3 py-1 text-sm"
               disabled={!newLine.trim()}
               onClick={() => {
                 saveLines([...lines, { id: `l-${Date.now().toString(36)}`, text: newLine.trim(), position: newPos, enabled: true }]);
@@ -619,7 +621,7 @@ export default function ScanWorkspace(props: StudioProps) {
             {voiceTakes.map((t) => (
               <li
                 key={t.id}
-                className={`space-y-2 rounded-lg border p-3 text-sm ${t.selected ? "border-neutral-900 bg-neutral-50" : "bg-white"}`}
+                className={`space-y-2 rounded-2xl border p-3 text-sm ${t.selected ? "border-accent bg-accent-soft" : "bg-white"}`}
               >
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <strong>Take {t.number}</strong>
@@ -629,7 +631,7 @@ export default function ScanWorkspace(props: StudioProps) {
                   </span>
                   {t.seconds !== null && <span className="text-neutral-500">{Math.round(t.seconds)}s</span>}
                   {t.selected && (
-                    <span className="rounded-full bg-neutral-900 px-2 py-0.5 text-xs font-medium text-white">In use</span>
+                    <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-white">In use</span>
                   )}
                   {!t.usable && (
                     <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
@@ -642,7 +644,7 @@ export default function ScanWorkspace(props: StudioProps) {
                 <div className="flex flex-wrap items-center gap-2">
                   {!t.selected && (
                     <button
-                      className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+                      className="rounded-xl bg-accent px-3 py-1.5 text-sm text-white disabled:opacity-40"
                       disabled={busy !== null || !t.usable}
                       title={t.usable ? undefined : "Made for an earlier script; it doesn't match the current one"}
                       onClick={() =>
@@ -657,14 +659,14 @@ export default function ScanWorkspace(props: StudioProps) {
                       Use this one
                     </button>
                   )}
-                  <a href={t.downloadUrl} className="rounded-md border px-3 py-1.5 text-sm">
+                  <a href={t.downloadUrl} className="rounded-xl bg-neutral-100 px-3 py-1.5 text-sm">
                     Download
                   </a>
                   {!t.selected &&
                     (confirmDelete === t.id ? (
                       <>
                         <button
-                          className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+                          className="rounded-xl bg-red-600 px-3 py-1.5 text-sm text-white disabled:opacity-40"
                           disabled={busy !== null}
                           onClick={() =>
                             run(`del-${t.id}`, async () => {
@@ -676,13 +678,13 @@ export default function ScanWorkspace(props: StudioProps) {
                         >
                           Delete for good
                         </button>
-                        <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => setConfirmDelete(null)}>
+                        <button className="rounded-xl bg-neutral-100 px-3 py-1.5 text-sm" onClick={() => setConfirmDelete(null)}>
                           Keep
                         </button>
                       </>
                     ) : (
                       <button
-                        className="rounded-md border px-3 py-1.5 text-sm text-red-700"
+                        className="rounded-xl bg-neutral-100 px-3 py-1.5 text-sm text-red-700"
                         disabled={busy !== null}
                         onClick={() => setConfirmDelete(t.id)}
                       >
@@ -701,7 +703,7 @@ export default function ScanWorkspace(props: StudioProps) {
 
       {audioUrl && (
         <div className="flex justify-end">
-          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => selectTab("animation", true)}>
+          <button className="rounded-xl bg-neutral-100 px-3 py-1.5 text-sm" onClick={() => selectTab("animation", true)}>
             Next: Animation →
           </button>
         </div>
@@ -721,7 +723,7 @@ export default function ScanWorkspace(props: StudioProps) {
                 const label = clip ? (clip.is_video ? "Animated" : "Mock clip") : pending ? "Animating…" : "Photo (slow zoom)";
                 return (
                   <figure key={p.id} className="space-y-1">
-                    <div className="aspect-[9/16] overflow-hidden rounded-md bg-neutral-100">
+                    <div className="aspect-[9/16] overflow-hidden rounded-xl bg-neutral-100">
                       {clip?.is_video ? (
                         <video src={clip.url} controls muted loop playsInline className="h-full w-full object-cover" />
                       ) : (
@@ -740,7 +742,7 @@ export default function ScanWorkspace(props: StudioProps) {
                 value={resolution}
                 onChange={(e) => setResolution(e.target.value as "480p" | "720p")}
                 disabled={busy !== null}
-                className="rounded-md border px-2 py-2 text-sm"
+                className="rounded-xl bg-neutral-100 px-2 py-2 text-sm"
               >
                 <option value="480p">480p draft (${PRICE_PER_SECOND["480p"].toFixed(2)}/s)</option>
                 <option value="720p">720p final (${PRICE_PER_SECOND["720p"].toFixed(2)}/s)</option>
@@ -783,7 +785,7 @@ export default function ScanWorkspace(props: StudioProps) {
           footage is shorter than the voiceover it&apos;s slowed down (down to half speed), then repeated if needed. If it&apos;s longer, the video simply runs past the
           voice. The videos&apos; own sound is replaced by the voiceover. No AI credits are used.
         </p>
-        <label className={`inline-block cursor-pointer rounded-md border px-4 py-2 text-sm font-medium ${uploadPct !== null || uploads.length >= MAX_UPLOADS ? "pointer-events-none opacity-40" : ""}`}>
+        <label className={`inline-block cursor-pointer rounded-xl bg-neutral-100 px-4 py-2 text-sm font-medium ${uploadPct !== null || uploads.length >= MAX_UPLOADS ? "pointer-events-none opacity-40" : ""}`}>
           {uploadPct !== null ? `Uploading… ${uploadPct}%` : "Choose video"}
           <input
             type="file"
@@ -799,14 +801,14 @@ export default function ScanWorkspace(props: StudioProps) {
         </label>
         {uploadPct !== null && (
           <div className="h-2 overflow-hidden rounded-full bg-neutral-100" role="progressbar" aria-valuenow={uploadPct} aria-valuemin={0} aria-valuemax={100}>
-            <div className="h-full rounded-full bg-neutral-900 transition-all" style={{ width: `${uploadPct}%` }} />
+            <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${uploadPct}%` }} />
           </div>
         )}
         {uploads.length > 0 && (
           <div className="grid grid-cols-3 gap-2 md:grid-cols-5">
             {uploads.map((u, idx) => (
               <figure key={u.id} className="space-y-1">
-                <div className="relative aspect-[9/16] overflow-hidden rounded-md bg-neutral-100">
+                <div className="relative aspect-[9/16] overflow-hidden rounded-xl bg-neutral-100">
                   <video src={u.url} controls muted loop playsInline preload="metadata" className="h-full w-full object-contain" />
                   <span className="absolute left-1 top-1 rounded-full bg-neutral-900 px-2 py-0.5 text-xs font-medium text-white">{idx + 1}</span>
                 </div>
@@ -850,7 +852,7 @@ export default function ScanWorkspace(props: StudioProps) {
 
       {clips.length > 0 && (
         <div className="flex justify-end">
-          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => selectTab("video", true)}>
+          <button className="rounded-xl bg-neutral-100 px-3 py-1.5 text-sm" onClick={() => selectTab("video", true)}>
             Next: Final Video →
           </button>
         </div>
@@ -874,14 +876,14 @@ export default function ScanWorkspace(props: StudioProps) {
               </span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
-              <div className="h-full rounded-full bg-neutral-900 transition-all duration-500" style={{ width: `${Math.max(percent, 2)}%` }} />
+              <div className="h-full rounded-full bg-accent transition-all duration-500" style={{ width: `${Math.max(percent, 2)}%` }} />
             </div>
             <p className="text-xs text-neutral-500">
               A 60-second video usually takes under a minute. You can leave this page; it will be here when you
               come back.
             </p>
             <button
-              className="rounded-md border px-3 py-1.5 text-sm"
+              className="rounded-xl bg-neutral-100 px-3 py-1.5 text-sm"
               disabled={busy !== null}
               onClick={() =>
                 run("cancel", async () => {
@@ -915,7 +917,7 @@ export default function ScanWorkspace(props: StudioProps) {
             <p className="text-sm font-medium">Review your video</p>
             <video src={videoUrl} controls playsInline className="aspect-[9/16] w-full max-w-xs rounded-lg bg-black" />
             {downloadUrl && (
-              <a href={downloadUrl} className="inline-block rounded-md border px-3 py-1.5 text-sm underline">
+              <a href={downloadUrl} className="inline-block rounded-xl bg-neutral-100 px-3 py-1.5 text-sm underline">
                 Download MP4
               </a>
             )}
@@ -930,7 +932,7 @@ export default function ScanWorkspace(props: StudioProps) {
 
       {videoUrl && (
         <div className="flex justify-end">
-          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => selectTab("social", true)}>
+          <button className="rounded-xl bg-neutral-100 px-3 py-1.5 text-sm" onClick={() => selectTab("social", true)}>
             Next: Social Copy →
           </button>
         </div>
@@ -969,7 +971,7 @@ export default function ScanWorkspace(props: StudioProps) {
                 role="tab"
                 aria-selected={copyTab === p}
                 onClick={() => setCopyTab(p)}
-                className={`min-h-10 flex-1 rounded-md px-2 text-sm ${copyTab === p ? "bg-white font-medium shadow-sm" : "text-neutral-600"}`}
+                className={`min-h-10 flex-1 rounded-xl px-2 text-sm ${copyTab === p ? "bg-white font-medium shadow-sm" : "text-neutral-600"}`}
               >
                 {p === "tiktok" ? "TikTok" : p === "instagram" ? "Instagram" : "YouTube"}
               </button>
@@ -984,11 +986,11 @@ export default function ScanWorkspace(props: StudioProps) {
           const tagCount = d.tags.split(/\s+/).filter(Boolean).length;
           const set = (patch: Partial<typeof d>) => setDrafts({ ...drafts, [c.platform]: { ...d, ...patch } });
           return (
-            <div key={c.platform} className="space-y-2 rounded-md bg-neutral-50 p-3 text-sm">
+            <div key={c.platform} className="space-y-2 rounded-xl bg-neutral-50 p-3 text-sm">
               <div className="flex items-center justify-between">
                 <strong>{c.platform === "tiktok" ? "TikTok" : c.platform === "instagram" ? "Instagram" : "YouTube"}</strong>
                 <button
-                  className="rounded-md border bg-white px-3 py-1 text-xs font-medium"
+                  className="rounded-xl bg-neutral-100 px-3 py-1 text-xs font-medium"
                   onClick={() =>
                     copyText(
                       c.platform,
@@ -1006,7 +1008,7 @@ export default function ScanWorkspace(props: StudioProps) {
                 <input
                   value={d.title}
                   onChange={(e) => set({ title: e.target.value })}
-                  className="w-full rounded-md border bg-white px-2 py-1.5"
+                  className="w-full rounded-xl bg-neutral-100 px-2 py-1.5"
                 />
               </label>
               <label className="block space-y-1">
@@ -1015,7 +1017,7 @@ export default function ScanWorkspace(props: StudioProps) {
                   value={d.description}
                   onChange={(e) => set({ description: e.target.value })}
                   rows={5}
-                  className="w-full rounded-md border bg-white px-2 py-1.5"
+                  className="w-full rounded-xl bg-neutral-100 px-2 py-1.5"
                 />
               </label>
               {publicUrl && (
@@ -1029,7 +1031,7 @@ export default function ScanWorkspace(props: StudioProps) {
                   value={d.tags}
                   onChange={(e) => set({ tags: e.target.value })}
                   rows={2}
-                  className="w-full rounded-md border bg-white px-2 py-1.5"
+                  className="w-full rounded-xl bg-neutral-100 px-2 py-1.5"
                 />
               </label>
               {c.platform === "youtube" && (
@@ -1040,7 +1042,7 @@ export default function ScanWorkspace(props: StudioProps) {
                   </p>
                   <button
                     type="button"
-                    className="rounded-md border bg-white px-3 py-1 text-xs font-medium text-neutral-900"
+                    className="rounded-xl bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-900"
                     onClick={() => copyText("yt-tags", d.tags.split(/\s+/).filter(Boolean).map((t) => t.replace(/^#/, "")).join(", "))}
                     aria-live="polite"
                   >
@@ -1049,7 +1051,7 @@ export default function ScanWorkspace(props: StudioProps) {
                 </div>
               )}
               <button
-                className="rounded-md border bg-white px-3 py-1.5 text-sm disabled:opacity-40"
+                className="rounded-xl bg-neutral-100 px-3 py-1.5 text-sm disabled:opacity-40"
                 disabled={busy !== null || saved}
                 onClick={() =>
                   run(`save-${c.platform}`, async () => {
@@ -1071,7 +1073,7 @@ export default function ScanWorkspace(props: StudioProps) {
 
       {copy.length > 0 && (
         <div className="flex justify-end">
-          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => selectTab("public", true)}>
+          <button className="rounded-xl bg-neutral-100 px-3 py-1.5 text-sm" onClick={() => selectTab("public", true)}>
             Next: Public Page →
           </button>
         </div>
@@ -1085,7 +1087,7 @@ export default function ScanWorkspace(props: StudioProps) {
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <button
-            className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-40"
+            className="rounded-xl bg-neutral-100 px-3 py-1.5 text-sm disabled:opacity-40"
             disabled={busy !== null}
             onClick={() =>
               run("public", async () => {
@@ -1102,7 +1104,7 @@ export default function ScanWorkspace(props: StudioProps) {
               <a className="text-sm underline" href={`/p/${scanId}`} target="_blank" rel="noreferrer">
                 Open page
               </a>
-              <button className="rounded-md border bg-white px-3 py-1 text-sm font-medium" onClick={() => copyText("link", `${origin}/p/${scanId}`)} aria-live="polite">
+              <button className="rounded-xl bg-neutral-100 px-3 py-1 text-sm font-medium" onClick={() => copyText("link", `${origin}/p/${scanId}`)} aria-live="polite">
                 {copied === "link" ? "Copied ✓" : "Copy link"}
               </button>
             </>
@@ -1114,7 +1116,7 @@ export default function ScanWorkspace(props: StudioProps) {
 
       {(
         <div className="flex justify-end">
-          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => selectTab("post", true)}>
+          <button className="rounded-xl bg-neutral-100 px-3 py-1.5 text-sm" onClick={() => selectTab("post", true)}>
             Next: Connect &amp; Post →
           </button>
         </div>
@@ -1124,7 +1126,7 @@ export default function ScanWorkspace(props: StudioProps) {
       <section className={card}>
         <h3 className="font-medium">Connect and post</h3>
         {!social.guarded && (
-          <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+          <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
             Set an <code>APP_PASSWORD</code> environment variable first. Connected accounts can post as you, so this app needs a password before it allows connecting.
           </p>
         )}
@@ -1137,7 +1139,7 @@ export default function ScanWorkspace(props: StudioProps) {
           const hasCopy = platform === "youtube" ? copy.length > 0 : copy.some((c) => c.platform === platform);
           const blocked = busy !== null || !videoUrl || !hasCopy;
           return (
-            <div key={platform} className="space-y-2 rounded-md bg-neutral-50 p-3 text-sm">
+            <div key={platform} className="space-y-2 rounded-xl bg-neutral-50 p-3 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <strong>{label}</strong>{" "}
@@ -1160,7 +1162,7 @@ export default function ScanWorkspace(props: StudioProps) {
                   </button>
                 ) : (
                   <a
-                    className={`rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white ${social.guarded ? "" : "pointer-events-none opacity-40"}`}
+                    className={`rounded-xl bg-accent px-3 py-1.5 text-sm font-medium text-white ${social.guarded ? "" : "pointer-events-none opacity-40"}`}
                     href={`/api/social/connect?platform=${platform}&scan=${scanId}`}
                     aria-disabled={!social.guarded}
                   >
@@ -1174,7 +1176,7 @@ export default function ScanWorkspace(props: StudioProps) {
                   {platform === "tiktok" && (
                     <label className="block space-y-1">
                       <span className="text-xs text-neutral-500">Who can see it</span>
-                      <select value={privacy} onChange={(e) => setPrivacy(e.target.value)} className="w-full rounded-md border bg-white px-2 py-1.5">
+                      <select value={privacy} onChange={(e) => setPrivacy(e.target.value)} className="w-full rounded-xl bg-neutral-100 px-2 py-1.5">
                         <option value="SELF_ONLY">Only me (required until TikTok approves the app)</option>
                         <option value="FOLLOWER_OF_CREATOR">Followers</option>
                         <option value="MUTUAL_FOLLOW_FRIENDS">Friends</option>
@@ -1193,7 +1195,7 @@ export default function ScanWorkspace(props: StudioProps) {
                           step={0.5}
                           value={coverSeconds}
                           onChange={(e) => setCoverSeconds(e.target.value)}
-                          className="w-20 rounded-md border bg-white px-2 py-1 text-sm text-neutral-900"
+                          className="w-20 rounded-xl bg-neutral-100 px-2 py-1 text-sm text-neutral-900"
                         />
                         seconds into the video
                       </label>
@@ -1221,7 +1223,7 @@ export default function ScanWorkspace(props: StudioProps) {
                   {platform === "youtube" && (
                     <label className="block space-y-1">
                       <span className="text-xs text-neutral-500">Who can see it</span>
-                      <select value={ytPrivacy} onChange={(e) => setYtPrivacy(e.target.value)} className="w-full rounded-md border bg-white px-2 py-1.5">
+                      <select value={ytPrivacy} onChange={(e) => setYtPrivacy(e.target.value)} className="w-full rounded-xl bg-neutral-100 px-2 py-1.5">
                         <option value="private">Private (YouTube keeps new apps private until Google approves them)</option>
                         <option value="unlisted">Unlisted</option>
                         <option value="public">Public</option>
@@ -1268,9 +1270,12 @@ export default function ScanWorkspace(props: StudioProps) {
           <ul
             role="menu"
             aria-label="Steps"
-            className="absolute inset-x-0 bottom-0 max-h-[75vh] space-y-1 overflow-y-auto rounded-t-2xl bg-white p-3 pb-28 shadow-xl"
+            className="absolute inset-x-0 bottom-0 max-h-[80vh] space-y-1 overflow-y-auto rounded-t-3xl bg-[#f2f2f7] p-3 pb-28 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
+            <li aria-hidden className="pb-2 pt-1">
+              <div className="mx-auto h-1.5 w-10 rounded-full bg-neutral-300" />
+            </li>
             {TABS.map((t, i) => {
               const st = tabStatus[t.id];
               return (
@@ -1278,7 +1283,7 @@ export default function ScanWorkspace(props: StudioProps) {
                   <button
                     role="menuitem"
                     onClick={() => selectTab(t.id)}
-                    className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-base ${t.id === tab ? "bg-neutral-900 font-medium text-white" : "active:bg-neutral-100"}`}
+                    className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-base ${t.id === tab ? "bg-accent font-semibold text-white" : "bg-white"}`}
                   >
                     <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${st === "done" ? "bg-green-600 text-white" : "bg-neutral-200 text-neutral-700"}`}>
                       {st === "done" ? "✓" : i + 1}
@@ -1292,9 +1297,9 @@ export default function ScanWorkspace(props: StudioProps) {
           </ul>
         </div>
       )}
-      <div className="fixed inset-x-0 bottom-0 z-50 flex items-center gap-2 border-t bg-white/95 px-3 pt-2 pb-safe backdrop-blur md:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-50 flex items-center gap-2 border-t bg-white/80 px-3 pt-2 pb-safe backdrop-blur-xl md:hidden">
         <button
-          className="min-h-12 min-w-12 rounded-xl border text-lg disabled:opacity-30"
+          className="min-h-11 min-w-11 rounded-full bg-neutral-100 text-lg text-accent disabled:opacity-30"
           disabled={tabIndex <= 0}
           onClick={() => selectTab(TABS[tabIndex - 1].id)}
           aria-label="Previous step"
@@ -1302,14 +1307,14 @@ export default function ScanWorkspace(props: StudioProps) {
           ←
         </button>
         <button
-          className="min-h-12 flex-1 rounded-xl border px-3 text-base font-medium"
+          className="min-h-11 flex-1 rounded-full bg-neutral-100 px-3 text-[15px] font-semibold"
           aria-expanded={stepsOpen}
           onClick={() => setStepsOpen((o) => !o)}
         >
           {TABS[tabIndex]?.label} <span className="font-normal text-neutral-500">· {tabIndex + 1}/{TABS.length} ▴</span>
         </button>
         <button
-          className="min-h-12 min-w-12 rounded-xl bg-neutral-900 text-lg text-white disabled:opacity-30"
+          className="min-h-11 min-w-11 rounded-full bg-accent text-lg text-white disabled:opacity-30"
           disabled={tabIndex >= TABS.length - 1}
           onClick={() => selectTab(TABS[tabIndex + 1].id)}
           aria-label="Next step"

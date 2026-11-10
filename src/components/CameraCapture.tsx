@@ -56,7 +56,7 @@ export default function CameraCapture({
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/90 p-4">
       {error ? (
-        <p className="max-w-sm rounded-md bg-white p-4 text-sm text-red-700">{error}</p>
+        <p className="max-w-sm rounded-xl bg-white p-4 text-sm text-red-700">{error}</p>
       ) : (
         <video ref={videoRef} playsInline muted className="max-h-[75vh] w-full max-w-xl rounded-lg bg-black" />
       )}
@@ -65,12 +65,12 @@ export default function CameraCapture({
           <button
             onClick={snap}
             disabled={!ready}
-            className="rounded-md bg-white px-5 py-2 font-medium text-neutral-900 disabled:opacity-50"
+            className="rounded-xl bg-white px-5 py-2 font-medium text-neutral-900 disabled:opacity-50"
           >
             Take photo
           </button>
         )}
-        <button onClick={onClose} className="rounded-md border border-white/40 px-5 py-2 text-white">
+        <button onClick={onClose} className="rounded-xl border border-white/40 px-5 py-2 text-white">
           {error ? "Close" : "Cancel"}
         </button>
       </div>

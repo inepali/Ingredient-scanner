@@ -137,3 +137,7 @@ TikTok posts are always marked AI-generated (`is_aigc`, required for AI voice/cl
 ## Social copy tabs
 
 Social Copy has a tab each for TikTok, Instagram and YouTube. YouTube now gets its own searchable title, description and 3 hashtags (migration 0012); posting to YouTube uses that copy. Scans written before this fall back to the Instagram text until you press Regenerate.
+
+## Native look
+
+The phone UI follows iOS conventions: system font, grey grouped background, white rounded cards, blue accent, large titles, a bottom tab bar (Scan / History) on the top-level screens, and a back bar ("‹ History") plus the step bar on a scan. Desktop keeps the sidebar. Colours and fonts are tokens in `src/app/globals.css` (`@theme`).
