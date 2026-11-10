@@ -115,11 +115,11 @@ Return ONLY a JSON object (no markdown fences) shaped like:
 { "title": string, "scenes": [ { "section": "hook" | "good" | "fair" | "poor" | "outro", "seconds": integer, "visual": string, "voiceover": string${photoCount ? ', "photo": integer' : ""} } ] }
 
 STRUCTURE (in this order, 7 to 9 scenes, "seconds" adding up to about 60; the retention hooks below are woven into these scenes, they are not extra scenes):
-1. "hook" (about 4 s): a curiosity hook about this product that makes people stay. Do not mention a score.
+1. "hook" (about 4 s): a scroll-stopper. The first sentence is 12 words or fewer and creates a curiosity gap or a contradiction about THIS product (see MAKE IT WORTH WATCHING). Do not mention a score.
 2. "good" (1 or 2 scenes): choose 2 or 3 of the GOOD candidates. For each, say in plain words one health benefit it may offer ("may support digestion", "a source of protein"). Skip plain water or anything with nothing meaningful to say.
 3. "fair" (1 scene): choose 1 or 2 of the FAIR candidates and say honestly whether they help your health or not ("neutral", "fine in small amounts", "doesn't add much"). Be fair, not dramatic.
 4. "poor" (1 or 2 scenes): choose 2 or 3 of the POOR candidates. For each, explain the specific concern for your health in plain words (for example added sugar, a refined oil, a heavily processed additive) and why it matters. Say "may" where the science is not settled.
-5. "outro" (about 8 s): a one-line takeaway in words (no number), then a "Try this instead" tip: tell people what to look for in a better version of this kind of product, as concrete label rules they can check in the shop ("look for one with five ingredients or fewer and no added sugar"). Name no brands and invent no numbers beyond simple label rules. Then finish with a short question that invites comments, such as "Do you eat this?". The very last words of the video MUST be a question.
+5. "outro" (about 8 s): a one-line takeaway in words (no number), then a "Try this instead" tip: tell people what to look for in a better version of this kind of product, as concrete label rules they can check in the shop ("look for one with five ingredients or fewer and no added sugar"). Name no brands and invent no numbers beyond simple label rules. Include one short, quotable "send this to someone who…" line that makes people want to share it. Then finish with a short question that invites comments, such as "Do you eat this?". The very last words of the video MUST be a question.
 If a group is empty, skip it with one honest line (for example, "Honestly, I didn't find much green here.").
 
 KEEP PEOPLE WATCHING (retention hooks). Viewers tend to drop off around 10-15 seconds, so plant three hooks. Count time at about 2.5 spoken words per second:
@@ -127,6 +127,15 @@ KEEP PEOPLE WATCHING (retention hooks). Viewers tend to drop off around 10-15 se
 - Hook at about 0:35: the last sentence of the scene that ends near the 35-second mark is a second, stronger teaser pointing at the most concerning ingredient, which you save for after this point (put the worst POOR candidate in the final stretch). If nothing on the label is concerning, tease the one thing that surprised you.
 - Closing hook: end the "outro" with the takeaway, the "Try this instead" tip, a nudge to comment, and the final question from rule 5.
 Pay each teaser off within the next 10-20 seconds. A teaser must never promise something the video does not deliver, and must not be clickbait, a scare tactic or a numeric score. Plan the scene lengths so a scene boundary lands near 0:15 and near 0:35.
+MAKE IT WORTH WATCHING AND SHARING (story craft). Treat the label like a short mystery with a reveal, not a list:
+- Hook formats that work (pick the one that fits the facts, never invent a claim): (a) contradiction, "It says 'natural'. The label says something else."; (b) a question people want answered, "What's the first thing on this label? Not what you think."; (c) a challenge, "Guess which ingredient shows up second."; (d) stakes, "Think twice before this goes in your cart." Open with the most surprising TRUE thing about this label, not with "Hey guys" or "Today I'm looking at".
+- Use label order as drama: ingredients are listed from most to least, so where an ingredient sits is a real, checkable fact ("Sugar is number two. Ingredients are listed by amount, so that's a lot.").
+- One vivid comparison per video, qualitative only ("reads more like a dessert recipe than breakfast"). No made-up numbers, statistics or studies.
+- Rhythm: short punchy sentences, mostly 10 words or fewer, with a beat of contrast ("Looks healthy. Reads differently."). Speak to "you". Strong verbs. No filler, no throat-clearing, no repeating the product name more than twice.
+- Build tension: save the most surprising or most concerning ingredient for the final stretch, then pay it off clearly. Give the good news honestly too, so people trust you.
+- Feel, don't scare: aim for "wait, really?" and "I'm sending this to my mum", never fear or shame. Stay truthful: a shareable video is one people can fact-check.
+- "title": a short, curiosity-driven title (under 60 characters) that promises something this video delivers.
+
 ${
     photoCount
       ? `
