@@ -1,6 +1,6 @@
 {
-  "name": "Ingredient Scanner",
-  "short_name": "Scanner",
+  "name": "Foodie Scanner",
+  "short_name": "Foodie Scanner",
   "description": "Label photo in, health report and 60s social video out.",
   "start_url": "/",
   "display": "standalone",

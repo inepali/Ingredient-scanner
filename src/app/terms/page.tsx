@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import LegalPage, { CONTACT_EMAIL } from "@/components/LegalPage";
 
-export const metadata: Metadata = { title: "Terms of Service · Ingredient Scanner" };
+export const metadata: Metadata = { title: "Terms of Service · Foodie Scanner" };
 
 export default function Terms() {
   return (
     <LegalPage title="Terms of Service">
       <p>
-        Ingredient Scanner is a personal tool that scores the ingredients on packaged food labels and helps its owner make short
+        Foodie Scanner is a personal tool that scores the ingredients on packaged food labels and helps its owner make short
         educational videos about them. By using it or viewing its public report pages, you agree to these terms.
       </p>
 
