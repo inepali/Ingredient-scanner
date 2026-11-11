@@ -35,7 +35,7 @@ export const WIDTH = 1080;
 export const HEIGHT = 1920;
 export const FPS = 30;
 /** Score ring overlay: size and distance from the top (clear of the app UI). */
-export const RING_SIZE = 300;
+export const RING_SIZE = 380;
 export const RING_TOP = 250; // clear of TikTok's search bar and account name
 export const RING_CENTER = { x: WIDTH / 2, y: RING_TOP + RING_SIZE / 2 };
 

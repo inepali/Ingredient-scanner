@@ -81,7 +81,7 @@ function assText(t: string): string {
  * for the ring overlay at the top for the whole video.
  */
 /** Distance (px, in a 1080-wide video) from the ring centre to the HEALTHY / SCORE labels. */
-const RING_LABEL_OFFSET = 62;
+const RING_LABEL_OFFSET = 80;
 
 export function buildAss(opts: {
   words: Word[];
@@ -132,10 +132,10 @@ ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Caption,${opts.fontName},78,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,7,1,2,70,70,640,1
-Style: RingLabel,${opts.fontName},30,&H00525252,&H00525252,&H00525252,&H00000000,-1,0,0,0,100,100,2,0,1,0,0,5,0,0,0,1
+Style: RingLabel,${opts.fontName},38,&H00525252,&H00525252,&H00525252,&H00000000,-1,0,0,0,100,100,2,0,1,0,0,5,0,0,0,1
 Style: BadgeTitle,${opts.fontName},24,&H00525252,&H00525252,&H00525252,&H00000000,-1,0,0,0,100,100,1,0,1,0,0,5,0,0,0,1
 Style: BadgeLetter,${opts.fontName},40,&H00FFFFFF,&H00FFFFFF,&H00FFFFFF,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
-Style: RingScore,${opts.fontName},100,&H00171717,&H00171717,&H00171717,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
+Style: RingScore,${opts.fontName},130,&H00171717,&H00171717,&H00171717,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text

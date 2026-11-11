@@ -27,8 +27,8 @@ test("buildAss has styles, timed captions and the ring score number", () => {
   assert.match(ass, /PlayResX: 1080/);
   assert.match(ass, /Dialogue: 0,0:00:00\.00,.*Caption,,0,0,0,,HELLO THERE FRIEND/);
   assert.match(ass, /Dialogue: 1,0:00:00\.00,0:00:03\.00,RingScore,,0,0,0,,\{\\an5\\pos\(540,400\)\}42/);
-  assert.match(ass, /RingLabel,,0,0,0,,\{\\an5\\pos\(540,338\)\}HEALTHY/);
-  assert.match(ass, /RingLabel,,0,0,0,,\{\\an5\\pos\(540,462\)\}SCORE/);
+  assert.match(ass, /RingLabel,,0,0,0,,\{\\an5\\pos\(540,320\)\}HEALTHY/);
+  assert.match(ass, /RingLabel,,0,0,0,,\{\\an5\\pos\(540,480\)\}SCORE/);
   assert.doesNotMatch(buildAss({ words: [], duration: 1, fontName: "x" }), /RingScore,,|RingLabel,,/);
 });
 
@@ -143,8 +143,8 @@ test("real render: clip + still + captions -> 1080x1920 mp4", { skip: !hasFfmpeg
       { number: 2, photoPath: join(dir, "photo.jpg"), clipPath: null, clipIsVideo: false },
     ]);
     writeFileSync(join(dir, "c.ass"), buildAss({ words: w, duration: seconds, fontName: "DejaVu Sans", score: 42, ringCenter: RING_CENTER, revealAt: 5, badges, badgeAt: [2, 4, 6] }));
-    writeFileSync(join(dir, "ring.png"), ringPng(300, 42, "#facc15"));
-    writeFileSync(join(dir, "ring0.png"), ringPng(300, 0, "#9ca3af"));
+    writeFileSync(join(dir, "ring.png"), ringPng(380, 42, "#facc15"));
+    writeFileSync(join(dir, "ring0.png"), ringPng(380, 0, "#9ca3af"));
     const cardList = badgeCards(badges);
     const badgeFiles = cardList.map((c, i) => {
       writeFileSync(join(dir, `b${i}.png`), badgeCardPng(c));

@@ -6,14 +6,14 @@ import type { Word } from "./captions.ts";
 export type BadgeData = Pick<OffSummary, "nutriscore" | "nova" | "green">;
 
 // Kept left of TikTok's like/comment/share buttons (right ~150px) and above its caption area (bottom ~470px).
-export const BADGE_TOP = 1330;
+export const BADGE_TOP = 1300;
 export const BADGE_STRIP_H = 150;
 const WIDTH = 1080;
-const COL_W = 260;
-const BAR_H = 84;
+const COL_W = 360;
+const BAR_H = 112;
 const BAR_LEFT = 36;
-const GAP = 10;
-const CHIP_R = 28;
+const GAP = 12;
+const CHIP_R = 38;
 
 const LIGHT_TEXT = "#171717";
 const NOVA = [["1", "#038141", "Unprocessed"], ["2", "#FECB02", "Ingredient"], ["3", "#EE8100", "Processed"], ["4", "#E63E11", "Ultra-processed"]] as const;
@@ -141,10 +141,10 @@ export function badgeDialogues(d: Partial<BadgeData>, starts: string[], end: str
   const out: string[] = [];
   badgeCards(d).forEach((c, i) => {
     const start = starts[i];
-    const fs = c.label.length > 1 ? 28 : 36;
-    out.push(`Dialogue: 2,${start},${end},BadgeLetter,,0,0,0,,{\\an5\\pos(${c.chipX},${c.chipY + 3})\\fs${fs}\\c${bgr(c.textColor)}}${c.label}`);
-    out.push(`Dialogue: 2,${start},${end},BadgeTitle,,0,0,0,,{\\an4\\pos(${c.textX},${c.textY - 15})\\fs16\\c&HCCCCCC&}${c.title}`);
-    out.push(`Dialogue: 2,${start},${end},BadgeTitle,,0,0,0,,{\\an4\\pos(${c.textX},${c.textY + 11})\\fs${c.caption.length > 14 ? 17 : c.caption.length > 9 ? 20 : 22}\\c&HFFFFFF&}${c.caption}`);
+    const fs = c.label.length > 1 ? 38 : 50;
+    out.push(`Dialogue: 2,${start},${end},BadgeLetter,,0,0,0,,{\\an5\\pos(${c.chipX},${c.chipY + 4})\\fs${fs}\\c${bgr(c.textColor)}}${c.label}`);
+    out.push(`Dialogue: 2,${start},${end},BadgeTitle,,0,0,0,,{\\an4\\pos(${c.textX},${c.textY - 20})\\fs22\\c&HCCCCCC&}${c.title}`);
+    out.push(`Dialogue: 2,${start},${end},BadgeTitle,,0,0,0,,{\\an4\\pos(${c.textX},${c.textY + 14})\\fs${c.caption.length > 14 ? 24 : c.caption.length > 9 ? 28 : 32}\\c&HFFFFFF&}${c.caption}`);
   });
   return out;
 }
