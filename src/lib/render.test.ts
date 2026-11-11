@@ -9,6 +9,7 @@ import { buildAss, captionChunks } from "./captions.ts";
 import { ringPixels, ringPng } from "./ring.ts";
 import { assignSources, planFootage, planSegments } from "./timeline.ts";
 import { buildFfmpegArgs, isRenderStale, parseDuration, parseProgressSeconds, probeDuration, runFfmpeg, RING_CENTER } from "./render.ts";
+import { parseReveal, revealSeconds } from "./reveal.ts";
 import { mockAlignment, silentWav } from "./mock.ts";
 import { wordsFromAlignment } from "./captions.ts";
 
@@ -141,7 +142,7 @@ test("real render: clip + still + captions -> 1080x1920 mp4", { skip: !hasFfmpeg
       { number: 1, photoPath: join(dir, "photo.jpg"), clipPath: join(dir, "clip.mp4"), clipIsVideo: true },
       { number: 2, photoPath: join(dir, "photo.jpg"), clipPath: null, clipIsVideo: false },
     ]);
-    writeFileSync(join(dir, "c.ass"), buildAss({ words: w, duration: seconds, fontName: "DejaVu Sans", score: 42, ringCenter: RING_CENTER, badges }));
+    writeFileSync(join(dir, "c.ass"), buildAss({ words: w, duration: seconds, fontName: "DejaVu Sans", score: 42, ringCenter: RING_CENTER, revealAt: 5, badges }));
     writeFileSync(join(dir, "ring.png"), ringPng(300, 42, "#facc15"));
     writeFileSync(join(dir, "badges.png"), badgesPng(badges)!);
 
@@ -156,6 +157,7 @@ test("real render: clip + still + captions -> 1080x1920 mp4", { skip: !hasFfmpeg
         outFile: out,
         ringFile: join(dir, "ring.png"),
         badgesFile: join(dir, "badges.png"),
+        revealAt: 5,
         total: seconds,
         preset: "ultrafast",
       }),
@@ -308,4 +310,28 @@ test("real render: two uploads (landscape + portrait) merged whole, slowed, noth
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("reveal: the ring and badges can be held back", () => {
+  assert.equal(revealSeconds("start", 60), 0);
+  assert.equal(revealSeconds("15", 60), 15);
+  assert.equal(revealSeconds("end", 60), 50);
+  assert.equal(revealSeconds("25", 20), 16); // short video: still leaves 4 s on screen
+  assert.equal(parseReveal("nonsense"), "15");
+
+  const ass = buildAss({ words: [], duration: 60, fontName: "X", score: 42, revealAt: 15, badges: { nova: 4, nutriscore: "d", green: null } });
+  assert.match(ass, /Dialogue: 1,0:00:15\.00,0:01:00\.00,RingScore/);
+  assert.match(ass, /Dialogue: 1,0:00:15\.00,0:01:00\.00,RingLabel/);
+  assert.match(ass, /Dialogue: 2,0:00:15\.00,0:01:00\.00,BadgeLetter/);
+
+  const args = buildFfmpegArgs({
+    segments: [{ kind: "image", file: "a.jpg", duration: 5 }],
+    audioFile: "a.mp3", assFile: "c.ass", fontsDir: "f", outFile: "o.mp4",
+    ringFile: "ring.png", badgesFile: "badges.png", revealAt: 15, total: 5,
+  });
+  const graph = args[args.indexOf("-filter_complex") + 1];
+  assert.match(graph, /overlay=\d+:250:enable=gte\(t\\,15\.00\)\[vr\]/);
+  assert.match(graph, /overlay=0:1310:enable=gte\(t\\,15\.00\)\[vb\]/);
+  const now = buildFfmpegArgs({ segments: [{ kind: "image", file: "a.jpg", duration: 5 }], audioFile: "a.mp3", assFile: "c.ass", fontsDir: "f", outFile: "o.mp4", ringFile: "ring.png", total: 5 });
+  assert.doesNotMatch(now[now.indexOf("-filter_complex") + 1], /enable=/);
 });

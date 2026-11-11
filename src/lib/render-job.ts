@@ -10,6 +10,7 @@ import { assignSources, planFootage, planSegments, type PhotoRef } from "./timel
 import { RING_CENTER, RING_SIZE, buildFfmpegArgs, probeDuration, runFfmpeg, type RenderProgress, type RenderSegment } from "./render";
 import { ringPng } from "./ring";
 import { badgesPng } from "./badges";
+import { DEFAULT_REVEAL, revealSeconds, type RevealChoice } from "./reveal";
 import { BAND_HEX, bandFor } from "./scoring";
 import type { MediaRow } from "./db-types";
 import type { OffSummary } from "./openfoodfacts";
@@ -23,7 +24,7 @@ class Cancelled extends Error {}
  * clips/photos and uploads it. Reports stage and percent (plus a heartbeat)
  * through the `jobs` row, which the browser polls. Never throws.
  */
-export async function runRender(scanId: string, jobId: string): Promise<void> {
+export async function runRender(scanId: string, jobId: string, reveal: RevealChoice = DEFAULT_REVEAL): Promise<void> {
   const db = supabase();
   const dir = await mkdtemp(join(tmpdir(), "render-"));
 
@@ -117,6 +118,7 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
     const off = (scan?.off_data ?? null) as Partial<OffSummary> | null;
     const badgeData = { nutriscore: off?.nutriscore ?? null, nova: off?.nova ?? null, green: off?.green ?? null };
     const badgePng = badgesPng(badgeData);
+    const revealAt = revealSeconds(reveal, outTotal);
 
     const assFile = join(dir, "captions.ass");
     await writeFile(
@@ -127,6 +129,7 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
         fontName: FONT_NAME,
         score: scan?.overall_score ?? null,
         ringCenter: RING_CENTER,
+        revealAt,
         badges: badgePng ? badgeData : undefined,
       }),
     );
@@ -156,6 +159,7 @@ export async function runRender(scanId: string, jobId: string): Promise<void> {
         outFile,
         ringFile,
         badgesFile,
+        revealAt,
         total: outTotal,
         preset: process.env.RENDER_PRESET || "veryfast",
       }),

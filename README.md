@@ -141,3 +141,7 @@ Social Copy has a tab each for TikTok, Instagram and YouTube. YouTube now gets i
 ## Native look
 
 The phone UI follows iOS conventions: system font, grey grouped background, white rounded cards, blue accent, large titles, a bottom tab bar (Scan / History) on the top-level screens, and a back bar ("‹ History") plus the step bar on a scan. Desktop keeps the sidebar. Colours and fonts are tokens in `src/app/globals.css` (`@theme`).
+
+## Score reveal
+
+The score ring and the rating badges (NOVA / Nutri-Score / Green-Score) are held back so people keep watching. On the video panel pick when they appear: right away, 10 s, 15 s (default), 25 s, or the last 10 s. The choice is saved in `settings.score_reveal` (migration 0013). Videos made earlier must be generated again to pick this up.

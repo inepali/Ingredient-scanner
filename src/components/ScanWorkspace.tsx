@@ -5,6 +5,7 @@ import AppNav from "./AppNav";
 import { useRouter } from "next/navigation";
 import { DEFAULT_DELIVERY, DELIVERIES, type Delivery } from "@/lib/delivery";
 import { withPublicLink } from "@/lib/public-link";
+import { REVEAL_CHOICES, type RevealChoice } from "@/lib/reveal";
 import { POSITIONS, type CustomLine, type LinePosition } from "@/lib/custom-lines";
 import { MAX_UPLOADS, MAX_UPLOAD_BYTES, videoTypeFor } from "@/lib/uploads";
 import { CLIP_SECONDS, PRICE_PER_SECOND, estimateCostUsd, type Resolution } from "@/lib/pricing";
@@ -79,6 +80,8 @@ export type StudioProps = {
   pendingJobs: { id: string; media_id: string | null }[];
   maxClips: number;
   defaultResolution: "480p" | "720p";
+  /** When the score ring and rating badges appear in the video. */
+  scoreReveal: RevealChoice;
   mock: boolean;
 };
 
@@ -289,6 +292,7 @@ export default function ScanWorkspace(props: StudioProps) {
     return () => clearInterval(timer);
   }, [processingKey]);
 
+  const [reveal, setReveal] = useState<RevealChoice>(props.scoreReveal);
   const [resolution, setResolution] = useState<"480p" | "720p">(props.defaultResolution);
 
   useEffect(() => {
@@ -896,18 +900,31 @@ export default function ScanWorkspace(props: StudioProps) {
             </button>
           </div>
         ) : (
+          <>
+          <label className="block space-y-1 text-sm">
+            <span className="text-xs text-neutral-500">Show the score and rating badges</span>
+            <select value={reveal} onChange={(e) => setReveal(e.target.value as RevealChoice)} className="w-full rounded-xl bg-neutral-100 px-2 py-2 text-sm">
+              {REVEAL_CHOICES.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+            <span className="block text-xs text-neutral-500">Holding the score back gives people a reason to keep watching.</span>
+          </label>
           <button
             className={btn}
             disabled={busy !== null || !audioUrl}
             onClick={() =>
               run("render", async () => {
                 setProgress(null);
-                await postJson(`/api/scans/${scanId}/render`, {});
+                await postJson(`/api/scans/${scanId}/render`, { reveal });
               })
             }
           >
             {busy === "render" ? "Starting…" : videoUrl ? "Generate again" : "Generate video"}
           </button>
+          </>
         )}
         {!audioUrl && <p className="text-sm text-neutral-500">Generate the voice first.</p>}
         {renderError && renderJobId === null && <p className="text-sm text-red-600">{renderError}</p>}

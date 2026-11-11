@@ -91,6 +91,8 @@ export function buildAss(opts: {
   score?: number | null;
   /** Centre of the ring overlay, in video pixels. */
   ringCenter?: { x: number; y: number };
+  /** Seconds into the video when the ring text and badge text appear (they are hidden before). */
+  revealAt?: number;
   /** NOVA / Nutri-Score / Green-Score cards along the bottom (only the known ones are drawn). */
   badges?: Partial<BadgeData>;
   width?: number;
@@ -101,15 +103,16 @@ export function buildAss(opts: {
   const lines = captionChunks(opts.words).map(
     (c) => `Dialogue: 0,${assTime(c.start)},${assTime(c.end)},Caption,,0,0,0,,${assText(c.text)}`,
   );
+  const show = assTime(Math.max(0, opts.revealAt ?? 0));
   if (opts.score != null) {
     const c = opts.ringCenter ?? { x: Math.round(W / 2), y: 400 };
-    lines.push(`Dialogue: 1,${assTime(0)},${assTime(opts.duration)},RingScore,,0,0,0,,{\\an5\\pos(${c.x},${c.y})}${Math.round(opts.score)}`);
+    lines.push(`Dialogue: 1,${show},${assTime(opts.duration)},RingScore,,0,0,0,,{\\an5\\pos(${c.x},${c.y})}${Math.round(opts.score)}`);
     // "HEALTHY" above the number and "SCORE" below it, inside the ring.
     for (const [text, dy] of [["HEALTHY", -RING_LABEL_OFFSET], ["SCORE", RING_LABEL_OFFSET]] as const) {
-      lines.push(`Dialogue: 1,${assTime(0)},${assTime(opts.duration)},RingLabel,,0,0,0,,{\\an5\\pos(${c.x},${c.y + dy})}${text}`);
+      lines.push(`Dialogue: 1,${show},${assTime(opts.duration)},RingLabel,,0,0,0,,{\\an5\\pos(${c.x},${c.y + dy})}${text}`);
     }
   }
-  if (opts.badges) lines.push(...badgeDialogues(opts.badges, assTime(0), assTime(opts.duration)));
+  if (opts.badges) lines.push(...badgeDialogues(opts.badges, show, assTime(opts.duration)));
   return `[Script Info]
 ScriptType: v4.00+
 PlayResX: ${W}

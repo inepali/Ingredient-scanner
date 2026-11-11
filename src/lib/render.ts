@@ -62,6 +62,8 @@ export type RenderOptions = {
   ringFile?: string;
   /** PNG strip with the NOVA / Nutri-Score / Green-Score cards, overlaid at BADGE_TOP. */
   badgesFile?: string;
+  /** Seconds into the video when the ring and badges appear (0 = from the start). */
+  revealAt?: number;
   total: number;
   preset?: string;
 };
@@ -116,11 +118,12 @@ export function buildFfmpegArgs(o: RenderOptions): string[] {
   if (o.badgesFile) args.push("-i", o.badgesFile);
   const concatIn = o.segments.map((_, i) => `[v${i}]`).join("");
   filters.push(`${concatIn}concat=n=${n}:v=1:a=0[vc]`);
+  const enable = o.revealAt && o.revealAt > 0 ? `:enable=gte(t\\,${o.revealAt.toFixed(2)})` : "";
   if (o.ringFile) {
     const x = Math.round((WIDTH - RING_SIZE) / 2);
-    filters.push(`[vc][${n + 1}:v]overlay=${x}:${RING_TOP}[vr]`);
+    filters.push(`[vc][${n + 1}:v]overlay=${x}:${RING_TOP}${enable}[vr]`);
   }
-  if (o.badgesFile) filters.push(`[${o.ringFile ? "vr" : "vc"}][${badgesIdx}:v]overlay=0:${BADGE_TOP}[vb]`);
+  if (o.badgesFile) filters.push(`[${o.ringFile ? "vr" : "vc"}][${badgesIdx}:v]overlay=0:${BADGE_TOP}${enable}[vb]`);
   filters.push(`[${o.badgesFile ? "vb" : o.ringFile ? "vr" : "vc"}]ass='${filterPath(o.assFile)}':fontsdir='${filterPath(o.fontsDir)}'[vout]`);
 
   args.push(

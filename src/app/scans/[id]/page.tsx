@@ -13,6 +13,7 @@ import { mediaUrl, mediaUrls, type MediaBucket } from "@/lib/storage";
 import { isRenderStale } from "@/lib/render";
 import type { CopyRow, JobRow, MediaRow, VoiceoverRow } from "@/lib/db-types";
 import NavBar from "@/components/NavBar";
+import { parseReveal } from "@/lib/reveal";
 import ScanWorkspace, { type StudioCopy, type StudioPost, type StudioMedia, type VoiceTake } from "@/components/ScanWorkspace";
 
 export const dynamic = "force-dynamic";
@@ -114,6 +115,7 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
     .from("social_copy")
     .select("platform, title, description, hashtags")
     .eq("scan_id", id);
+  const { data: settingsData } = await db.from("settings").select("score_reveal").eq("id", 1).maybeSingle();
   const { data: acctData } = await db.from("social_accounts").select("platform, account_name, expires_at");
   const { data: postData } = await db
     .from("social_posts")
@@ -318,6 +320,7 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
         maxClips={Number(process.env.MAX_CLIPS ?? 4)}
         defaultResolution={defaultResolution}
         mock={isMock()}
+        scoreReveal={parseReveal(settingsData?.score_reveal)}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
