@@ -4,13 +4,15 @@ import type { OffSummary } from "./openfoodfacts.ts";
 /** Bottom-of-video info bar: NOVA, Nutri-Score and Green-Score as colour chips (only the ones we have, in that order). */
 export type BadgeData = Pick<OffSummary, "nutriscore" | "nova" | "green">;
 
-export const BADGE_TOP = 1480;
-export const BADGE_STRIP_H = 170;
+// Kept left of TikTok's like/comment/share buttons (right ~150px) and above its caption area (bottom ~470px).
+export const BADGE_TOP = 1310;
+export const BADGE_STRIP_H = 150;
 const WIDTH = 1080;
-const COL_W = 330;
-const BAR_H = 150;
+const COL_W = 260;
+const BAR_H = 130;
+const BAR_LEFT = 40;
 const BAR_PAD = 14;
-const CHIP_R = 46;
+const CHIP_R = 36;
 
 const LIGHT_TEXT = "#171717";
 const NOVA = [["1", "#038141", "Unprocessed"], ["2", "#FECB02", "Ingredient"], ["3", "#EE8100", "Processed"], ["4", "#E63E11", "Ultra-processed"]] as const;
@@ -41,7 +43,7 @@ export function badgeBar(d: Partial<BadgeData>): BadgeBar | null {
   if (d.green) picks.push(["GREEN-SCORE", GREEN[["a-plus", "a", "b", "c", "d", "e"].indexOf(d.green)]]);
   if (picks.length === 0) return null;
   const w = picks.length * COL_W + 2 * BAR_PAD;
-  const x = (WIDTH - w) / 2;
+  const x = BAR_LEFT;
   const y = BADGE_TOP + (BADGE_STRIP_H - BAR_H) / 2;
   const cy = y + BAR_H / 2;
   const cards = picks.map(([title, [label, color, caption]], i): BadgeCard => {
@@ -53,9 +55,9 @@ export function badgeBar(d: Partial<BadgeData>): BadgeBar | null {
       color,
       textColor: color === "#FECB02" ? LIGHT_TEXT : "#FFFFFF",
       x: cx0,
-      chipX: cx0 + 16 + CHIP_R,
+      chipX: cx0 + 12 + CHIP_R,
       chipY: cy,
-      textX: cx0 + 16 + 2 * CHIP_R + 14,
+      textX: cx0 + 12 + 2 * CHIP_R + 10,
       textY: cy,
       w: COL_W,
     };
@@ -111,10 +113,10 @@ const bgr = (c: string) => {
 export function badgeDialogues(d: Partial<BadgeData>, start: string, end: string): string[] {
   const out: string[] = [];
   for (const c of badgeCards(d)) {
-    const fs = c.label.length > 1 ? 46 : 60;
+    const fs = c.label.length > 1 ? 36 : 46;
     out.push(`Dialogue: 2,${start},${end},BadgeLetter,,0,0,0,,{\\an5\\pos(${c.chipX},${c.chipY + 3})\\fs${fs}\\c${bgr(c.textColor)}}${c.label}`);
-    out.push(`Dialogue: 2,${start},${end},BadgeTitle,,0,0,0,,{\\an4\\pos(${c.textX},${c.textY - 24})\\fs22\\c&HCCCCCC&}${c.title}`);
-    out.push(`Dialogue: 2,${start},${end},BadgeTitle,,0,0,0,,{\\an4\\pos(${c.textX},${c.textY + 12})\\fs${c.caption.length > 14 ? 21 : 26}\\c&HFFFFFF&}${c.caption}`);
+    out.push(`Dialogue: 2,${start},${end},BadgeTitle,,0,0,0,,{\\an4\\pos(${c.textX},${c.textY - 20})\\fs18\\c&HCCCCCC&}${c.title}`);
+    out.push(`Dialogue: 2,${start},${end},BadgeTitle,,0,0,0,,{\\an4\\pos(${c.textX},${c.textY + 10})\\fs${c.caption.length > 14 ? 17 : c.caption.length > 9 ? 20 : 24}\\c&HFFFFFF&}${c.caption}`);
   }
   return out;
 }
