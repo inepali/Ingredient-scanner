@@ -59,7 +59,7 @@ export type RenderOptions = {
   audioSeconds?: number;
   /** PNG of the score ring, overlaid top-centre for the whole video. */
   ringFile?: string;
-  /** Ring with a short arc, spun while waiting (shown until revealAt, when the real ring takes over). */
+  /** Empty ring track shown until revealAt, when the real ring takes over (the spinning arc is drawn by the subtitles). */
   ringBlankFile?: string;
   /** Badge cards: each PNG is overlaid at (x, y) from `at` seconds on. */
   badges?: { file: string; x: number; y: number; at: number }[];
@@ -118,7 +118,7 @@ export function buildFfmpegArgs(o: RenderOptions): string[] {
   const ringIdx = o.ringFile ? next++ : -1;
   const blankIdx = o.ringFile && o.ringBlankFile && o.revealAt && o.revealAt > 0 ? next++ : -1;
   if (ringIdx >= 0) args.push("-i", o.ringFile!);
-  if (blankIdx >= 0) args.push("-loop", "1", "-framerate", String(FPS), "-i", o.ringBlankFile!);
+  if (blankIdx >= 0) args.push("-i", o.ringBlankFile!);
   const badgeIdx = (o.badges ?? []).map((b) => {
     args.push("-i", b.file);
     return next++;
@@ -131,8 +131,7 @@ export function buildFfmpegArgs(o: RenderOptions): string[] {
     const x = Math.round((WIDTH - RING_SIZE) / 2);
     if (blankIdx >= 0) {
       const r = o.revealAt!.toFixed(2);
-      filters.push(`[${blankIdx}:v]format=rgba,rotate=a=2*PI*t/1.4:c=none:ow=iw:oh=ih[spin]`);
-      filters.push(`[${last}][spin]overlay=${x}:${RING_TOP}:enable=lt(t\\,${r})[vq]`);
+      filters.push(`[${last}][${blankIdx}:v]overlay=${x}:${RING_TOP}:enable=lt(t\\,${r})[vq]`);
       filters.push(`[vq][${ringIdx}:v]overlay=${x}:${RING_TOP}:${at(o.revealAt!)}[vr]`);
     } else {
       filters.push(`[${last}][${ringIdx}:v]overlay=${x}:${RING_TOP}[vr]`);

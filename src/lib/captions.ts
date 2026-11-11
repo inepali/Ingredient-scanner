@@ -1,3 +1,4 @@
+import { RING_SIZE } from "./render.ts";
 import { badgeDialogues, badgeTimes, type BadgeData } from "./badges.ts";
 // ElevenLabs returns character-level timings. Captions need word-level timings.
 
@@ -80,6 +81,31 @@ function assText(t: string): string {
  * outline in the lower third (clear of TikTok/Reels buttons) and the score number
  * for the ring overlay at the top for the whole video.
  */
+/** Rounded-end arc (a short stroke of the ring) as an ASS vector path, in absolute video pixels, starting at the top. */
+function spinnerPath(cx: number, cy: number, radius: number, stroke: number, sweepDeg: number): string {
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const at = (r: number, deg: number): [number, number] => [cx + r * Math.sin(rad(deg)), cy - r * Math.cos(rad(deg))];
+  const pts: [number, number][] = [];
+  const steps = 24;
+  for (let i = 0; i <= steps; i++) pts.push(at(radius + stroke / 2, (sweepDeg * i) / steps));
+  // Round cap at the far end (outer edge -> forward -> inner edge), inner edge back, round cap at the start.
+  const cap = (deg: number, forward: 1 | -1, fromOuter: boolean) => {
+    const [ex, ey] = at(radius, deg);
+    const u = [Math.sin(rad(deg)), -Math.cos(rad(deg))];
+    const t = [Math.cos(rad(deg)), Math.sin(rad(deg))];
+    for (let i = 1; i < 8; i++) {
+      const f = (i * Math.PI) / 8;
+      const side = fromOuter ? 1 : -1;
+      pts.push([ex + (stroke / 2) * (side * u[0] * Math.cos(f) + forward * t[0] * Math.sin(f)), ey + (stroke / 2) * (side * u[1] * Math.cos(f) + forward * t[1] * Math.sin(f))]);
+    }
+  };
+  cap(sweepDeg, 1, true);
+  for (let i = steps; i >= 0; i--) pts.push(at(radius - stroke / 2, (sweepDeg * i) / steps));
+  cap(0, -1, false);
+  const f = (p: [number, number]) => `${Math.round(p[0])} ${Math.round(p[1])}`;
+  return `m ${f(pts[0])} l ${pts.slice(1).map(f).join(" ")}`;
+}
+
 /** Distance (px, in a 1080-wide video) from the ring centre to the HEALTHY / SCORE labels. */
 const RING_LABEL_OFFSET = 80;
 
@@ -112,6 +138,14 @@ export function buildAss(opts: {
     const reveal = opts.revealAt ?? 0;
     // The ring is up from the first frame. Its number is a "?" until the reveal.
     if (reveal > 0) lines.push(`Dialogue: 1,${assTime(0)},${show},RingScore,,0,0,0,,{\\an5\\pos(${c.x},${c.y})}?`);
+    if (reveal > 0) {
+      // A short blue arc circling the empty ring while the score is hidden (vector drawing, so it costs nothing to render).
+      const k = RING_SIZE / 132;
+      const turns = (reveal / 1.4) * 360;
+      lines.push(
+        `Dialogue: 1,${assTime(0)},${show},Spin,,0,0,0,,{\\an7\\pos(0,0)\\org(${c.x},${c.y})\\1c&HF6823B&\\bord0\\shad0\\t(0,${Math.round(reveal * 1000)},\\frz-${Math.round(turns)})\\p1}${spinnerPath(c.x, c.y, 54 * k, 10 * k, 100)}`,
+      );
+    }
     lines.push(`Dialogue: 1,${show},${end},RingScore,,0,0,0,,{\\an5\\pos(${c.x},${c.y})}${Math.round(opts.score)}`);
     // "HEALTHY" above the number and "SCORE" below it, inside the ring.
     for (const [text, dy] of [["HEALTHY", -RING_LABEL_OFFSET], ["SCORE", RING_LABEL_OFFSET]] as const) {
@@ -135,6 +169,7 @@ Style: Caption,${opts.fontName},78,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-
 Style: RingLabel,${opts.fontName},38,&H00525252,&H00525252,&H00525252,&H00000000,-1,0,0,0,100,100,2,0,1,0,0,5,0,0,0,1
 Style: BadgeTitle,${opts.fontName},24,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,-1,0,0,0,100,100,1,0,1,2,0,5,0,0,0,1
 Style: BadgeLetter,${opts.fontName},40,&H00FFFFFF,&H00FFFFFF,&H00FFFFFF,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
+Style: Spin,${opts.fontName},20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
 Style: RingScore,${opts.fontName},130,&H00171717,&H00171717,&H00171717,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
 
 [Events]

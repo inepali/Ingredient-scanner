@@ -144,7 +144,7 @@ test("real render: clip + still + captions -> 1080x1920 mp4", { skip: !hasFfmpeg
     ]);
     writeFileSync(join(dir, "c.ass"), buildAss({ words: w, duration: seconds, fontName: "DejaVu Sans", score: 42, ringCenter: RING_CENTER, revealAt: 5, badges, badgeAt: [2, 4, 6] }));
     writeFileSync(join(dir, "ring.png"), ringPng(380, 42, "#facc15"));
-    writeFileSync(join(dir, "ring0.png"), ringPng(380, 28, "#3b82f6"));
+    writeFileSync(join(dir, "ring0.png"), ringPng(380, 0, "#3b82f6"));
     const cardList = badgeCards(badges);
     const badgeFiles = cardList.map((c, i) => {
       writeFileSync(join(dir, `b${i}.png`), badgeCardPng(c));
@@ -335,6 +335,7 @@ test("reveal: ring shows ? first, badges follow the narration", () => {
   const ass = buildAss({ words, duration: 60, fontName: "X", score: 42, revealAt: 15, badges });
   assert.match(ass, /Dialogue: 1,0:00:00\.00,0:00:15\.00,RingScore,,0,0,0,,\{[^}]*\}\?/);
   assert.match(ass, /Dialogue: 1,0:00:15\.00,0:01:00\.00,RingScore,,0,0,0,,\{[^}]*\}42/);
+  assert.match(ass, /Dialogue: 1,0:00:00\.00,0:00:15\.00,Spin,,0,0,0,,\{[^}]*\\t\(0,15000,\\frz-\d+\)[^}]*\\p1\}m /);
   assert.match(ass, /Dialogue: 1,0:00:00\.00,0:01:00\.00,RingLabel/);
   assert.match(ass, /Dialogue: 2,0:00:02\.85,0:01:00\.00,BadgeLetter/);
   assert.match(ass, /Dialogue: 2,0:00:07\.85,0:01:00\.00,BadgeLetter/);
