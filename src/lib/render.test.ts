@@ -105,7 +105,7 @@ test("badges: only known metrics get a chip, in order, coloured by value", () =>
   assert.deepEqual(badgeCards({ nova: null, nutriscore: null, green: null }), []);
   const cards = badgeCards({ nova: 3, green: "a-plus" });
   assert.deepEqual(cards.map((c) => c.title), ["NOVA", "GREEN-SCORE"]);
-  assert.ok(cards[0].x < cards[1].x);
+  assert.ok(cards[0].y < cards[1].y && cards[0].x === cards[1].x); // stacked top to bottom on the left
   assert.equal(cards[0].label, "3");
   assert.equal(cards[0].color, "#EE8100");
   assert.equal(cards[1].label, "A+");

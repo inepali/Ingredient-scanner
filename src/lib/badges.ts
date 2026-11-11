@@ -6,14 +6,14 @@ import type { Word } from "./captions.ts";
 export type BadgeData = Pick<OffSummary, "nutriscore" | "nova" | "green">;
 
 // Kept left of TikTok's like/comment/share buttons (right ~150px) and above its caption area (bottom ~470px).
-export const BADGE_TOP = 1310;
+export const BADGE_TOP = 1330;
 export const BADGE_STRIP_H = 150;
 const WIDTH = 1080;
 const COL_W = 260;
-const BAR_H = 130;
-const BAR_LEFT = 40;
-const GAP = 12;
-const CHIP_R = 36;
+const BAR_H = 84;
+const BAR_LEFT = 36;
+const GAP = 10;
+const CHIP_R = 28;
 
 const LIGHT_TEXT = "#171717";
 const NOVA = [["1", "#038141", "Unprocessed"], ["2", "#FECB02", "Ingredient"], ["3", "#EE8100", "Processed"], ["4", "#E63E11", "Ultra-processed"]] as const;
@@ -40,7 +40,7 @@ export type BadgeCard = {
 };
 export type BadgeBar = { x: number; y: number; w: number; h: number; cards: BadgeCard[] };
 
-/** Card geometry for the metrics we know (one separate pill each, left to right); null when there are none. */
+/** Card geometry for the metrics we know (one separate pill each, stacked top to bottom on the left); null when there are none. */
 export function badgeBar(d: Partial<BadgeData>): BadgeBar | null {
   const picks: [BadgeCard["key"], string, readonly [string, string, string]][] = [];
   if (d.nova) picks.push(["nova", "NOVA", NOVA[d.nova - 1]]);
@@ -48,10 +48,11 @@ export function badgeBar(d: Partial<BadgeData>): BadgeBar | null {
   if (d.green) picks.push(["green", "GREEN-SCORE", GREEN[["a-plus", "a", "b", "c", "d", "e"].indexOf(d.green)]]);
   if (picks.length === 0) return null;
   const x = BAR_LEFT;
-  const y = BADGE_TOP + (BADGE_STRIP_H - BAR_H) / 2;
-  const cy = y + BAR_H / 2;
+  const y = BADGE_TOP;
   const cards = picks.map(([key, title, [label, color, caption]], i): BadgeCard => {
-    const cx0 = x + i * (COL_W + GAP);
+    const cx0 = x;
+    const top = y + i * (BAR_H + GAP);
+    const cy = top + BAR_H / 2;
     return {
       key,
       title,
@@ -60,7 +61,7 @@ export function badgeBar(d: Partial<BadgeData>): BadgeBar | null {
       color,
       textColor: color === "#FECB02" ? LIGHT_TEXT : "#FFFFFF",
       x: cx0,
-      y,
+      y: top,
       chipX: cx0 + 12 + CHIP_R,
       chipY: cy,
       textX: cx0 + 12 + 2 * CHIP_R + 10,
@@ -68,7 +69,7 @@ export function badgeBar(d: Partial<BadgeData>): BadgeBar | null {
       w: COL_W,
     };
   });
-  return { x, y, w: picks.length * COL_W + (picks.length - 1) * GAP, h: BAR_H, cards };
+  return { x, y, w: COL_W, h: picks.length * BAR_H + (picks.length - 1) * GAP, cards };
 }
 
 export const badgeCards = (d: Partial<BadgeData>): BadgeCard[] => badgeBar(d)?.cards ?? [];
@@ -140,10 +141,10 @@ export function badgeDialogues(d: Partial<BadgeData>, starts: string[], end: str
   const out: string[] = [];
   badgeCards(d).forEach((c, i) => {
     const start = starts[i];
-    const fs = c.label.length > 1 ? 36 : 46;
+    const fs = c.label.length > 1 ? 28 : 36;
     out.push(`Dialogue: 2,${start},${end},BadgeLetter,,0,0,0,,{\\an5\\pos(${c.chipX},${c.chipY + 3})\\fs${fs}\\c${bgr(c.textColor)}}${c.label}`);
-    out.push(`Dialogue: 2,${start},${end},BadgeTitle,,0,0,0,,{\\an4\\pos(${c.textX},${c.textY - 20})\\fs18\\c&HCCCCCC&}${c.title}`);
-    out.push(`Dialogue: 2,${start},${end},BadgeTitle,,0,0,0,,{\\an4\\pos(${c.textX},${c.textY + 10})\\fs${c.caption.length > 14 ? 17 : c.caption.length > 9 ? 20 : 24}\\c&HFFFFFF&}${c.caption}`);
+    out.push(`Dialogue: 2,${start},${end},BadgeTitle,,0,0,0,,{\\an4\\pos(${c.textX},${c.textY - 15})\\fs16\\c&HCCCCCC&}${c.title}`);
+    out.push(`Dialogue: 2,${start},${end},BadgeTitle,,0,0,0,,{\\an4\\pos(${c.textX},${c.textY + 11})\\fs${c.caption.length > 14 ? 17 : c.caption.length > 9 ? 20 : 22}\\c&HFFFFFF&}${c.caption}`);
   });
   return out;
 }
