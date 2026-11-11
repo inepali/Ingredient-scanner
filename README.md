@@ -144,4 +144,4 @@ The phone UI follows iOS conventions: system font, grey grouped background, whit
 
 ## Score reveal
 
-The score ring and the rating badges (NOVA / Nutri-Score / Green-Score) are held back so people keep watching. On the video panel pick when they appear: right away, 10 s, 15 s (default), 25 s, or the last 10 s. The choice is saved in `settings.score_reveal` (migration 0013). Videos made earlier must be generated again to pick this up.
+The score ring is on screen from the first frame showing a "?" and the real number and arc appear at the time you pick (right away, 10 s, 15 s default, 25 s, or the last 10 s). Each rating badge (NOVA, Nutri-Score, Green-Score) pops in the moment the narrator says its name; one never spoken appears with the score. The script prompt asks the AI to name each one once. Videos made earlier must be generated again.

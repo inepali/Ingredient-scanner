@@ -1,7 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { BADGE_TOP } from "./badges.ts";
 
 // Builds and runs one ffmpeg command: normalizes every segment to 1080x1920 at
 // 30 fps (clips loop to fit, stills get a slow zoom), concatenates them, burns
@@ -60,9 +59,11 @@ export type RenderOptions = {
   audioSeconds?: number;
   /** PNG of the score ring, overlaid top-centre for the whole video. */
   ringFile?: string;
-  /** PNG strip with the NOVA / Nutri-Score / Green-Score cards, overlaid at BADGE_TOP. */
-  badgesFile?: string;
-  /** Seconds into the video when the ring and badges appear (0 = from the start). */
+  /** Empty ring (no score arc) shown until revealAt, when the real ring takes over. */
+  ringBlankFile?: string;
+  /** Badge cards: each PNG is overlaid at (x, y) from `at` seconds on. */
+  badges?: { file: string; x: number; y: number; at: number }[];
+  /** Seconds into the video when the ring shows its score (0 = from the start). */
   revealAt?: number;
   total: number;
   preset?: string;
@@ -113,18 +114,36 @@ export function buildFfmpegArgs(o: RenderOptions): string[] {
 
   args.push("-i", o.audioFile);
   const n = o.segments.length;
-  if (o.ringFile) args.push("-i", o.ringFile);
-  const badgesIdx = n + 1 + (o.ringFile ? 1 : 0);
-  if (o.badgesFile) args.push("-i", o.badgesFile);
+  let next = n + 1;
+  const ringIdx = o.ringFile ? next++ : -1;
+  const blankIdx = o.ringFile && o.ringBlankFile && o.revealAt && o.revealAt > 0 ? next++ : -1;
+  if (ringIdx >= 0) args.push("-i", o.ringFile!);
+  if (blankIdx >= 0) args.push("-i", o.ringBlankFile!);
+  const badgeIdx = (o.badges ?? []).map((b) => {
+    args.push("-i", b.file);
+    return next++;
+  });
   const concatIn = o.segments.map((_, i) => `[v${i}]`).join("");
   filters.push(`${concatIn}concat=n=${n}:v=1:a=0[vc]`);
-  const enable = o.revealAt && o.revealAt > 0 ? `:enable=gte(t\\,${o.revealAt.toFixed(2)})` : "";
-  if (o.ringFile) {
+  const at = (t: number) => `enable=gte(t\\,${t.toFixed(2)})`;
+  let last = "vc";
+  if (ringIdx >= 0) {
     const x = Math.round((WIDTH - RING_SIZE) / 2);
-    filters.push(`[vc][${n + 1}:v]overlay=${x}:${RING_TOP}${enable}[vr]`);
+    if (blankIdx >= 0) {
+      const r = o.revealAt!.toFixed(2);
+      filters.push(`[${last}][${blankIdx}:v]overlay=${x}:${RING_TOP}:enable=lt(t\\,${r})[vq]`);
+      filters.push(`[vq][${ringIdx}:v]overlay=${x}:${RING_TOP}:${at(o.revealAt!)}[vr]`);
+    } else {
+      filters.push(`[${last}][${ringIdx}:v]overlay=${x}:${RING_TOP}[vr]`);
+    }
+    last = "vr";
   }
-  if (o.badgesFile) filters.push(`[${o.ringFile ? "vr" : "vc"}][${badgesIdx}:v]overlay=0:${BADGE_TOP}${enable}[vb]`);
-  filters.push(`[${o.badgesFile ? "vb" : o.ringFile ? "vr" : "vc"}]ass='${filterPath(o.assFile)}':fontsdir='${filterPath(o.fontsDir)}'[vout]`);
+  (o.badges ?? []).forEach((b, i) => {
+    const out = `vb${i}`;
+    filters.push(`[${last}][${badgeIdx[i]}:v]overlay=${b.x}:${b.y}${b.at > 0 ? `:${at(b.at)}` : ""}[${out}]`);
+    last = out;
+  });
+  filters.push(`[${last}]ass='${filterPath(o.assFile)}':fontsdir='${filterPath(o.fontsDir)}'[vout]`);
 
   args.push(
     "-filter_complex", filters.join(";"),

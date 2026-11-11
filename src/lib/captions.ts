@@ -1,4 +1,4 @@
-import { badgeDialogues, type BadgeData } from "./badges.ts";
+import { badgeDialogues, badgeTimes, type BadgeData } from "./badges.ts";
 // ElevenLabs returns character-level timings. Captions need word-level timings.
 
 export type Alignment = {
@@ -91,8 +91,10 @@ export function buildAss(opts: {
   score?: number | null;
   /** Centre of the ring overlay, in video pixels. */
   ringCenter?: { x: number; y: number };
-  /** Seconds into the video when the ring text and badge text appear (they are hidden before). */
+  /** Seconds into the video when the score number replaces the "?" in the ring. */
   revealAt?: number;
+  /** Seconds when each badge card appears (same order as the cards). Defaults to revealAt. */
+  badgeAt?: number[];
   /** NOVA / Nutri-Score / Green-Score cards along the bottom (only the known ones are drawn). */
   badges?: Partial<BadgeData>;
   width?: number;
@@ -104,15 +106,22 @@ export function buildAss(opts: {
     (c) => `Dialogue: 0,${assTime(c.start)},${assTime(c.end)},Caption,,0,0,0,,${assText(c.text)}`,
   );
   const show = assTime(Math.max(0, opts.revealAt ?? 0));
+  const end = assTime(opts.duration);
   if (opts.score != null) {
     const c = opts.ringCenter ?? { x: Math.round(W / 2), y: 400 };
-    lines.push(`Dialogue: 1,${show},${assTime(opts.duration)},RingScore,,0,0,0,,{\\an5\\pos(${c.x},${c.y})}${Math.round(opts.score)}`);
+    const reveal = opts.revealAt ?? 0;
+    // The ring is up from the first frame. Its number is a "?" until the reveal.
+    if (reveal > 0) lines.push(`Dialogue: 1,${assTime(0)},${show},RingScore,,0,0,0,,{\\an5\\pos(${c.x},${c.y})}?`);
+    lines.push(`Dialogue: 1,${show},${end},RingScore,,0,0,0,,{\\an5\\pos(${c.x},${c.y})}${Math.round(opts.score)}`);
     // "HEALTHY" above the number and "SCORE" below it, inside the ring.
     for (const [text, dy] of [["HEALTHY", -RING_LABEL_OFFSET], ["SCORE", RING_LABEL_OFFSET]] as const) {
-      lines.push(`Dialogue: 1,${show},${assTime(opts.duration)},RingLabel,,0,0,0,,{\\an5\\pos(${c.x},${c.y + dy})}${text}`);
+      lines.push(`Dialogue: 1,${assTime(0)},${end},RingLabel,,0,0,0,,{\\an5\\pos(${c.x},${c.y + dy})}${text}`);
     }
   }
-  if (opts.badges) lines.push(...badgeDialogues(opts.badges, show, assTime(opts.duration)));
+  if (opts.badges) {
+    const at = opts.badgeAt ?? badgeTimes(opts.badges, opts.words, opts.revealAt ?? 0);
+    lines.push(...badgeDialogues(opts.badges, at.map(assTime), end));
+  }
   return `[Script Info]
 ScriptType: v4.00+
 PlayResX: ${W}

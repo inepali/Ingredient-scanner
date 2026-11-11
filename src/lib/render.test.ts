@@ -1,4 +1,4 @@
-import { badgeCards, badgesPng } from "./badges.ts";
+import { badgeCardPng, badgeCards, badgeTimes } from "./badges.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -102,7 +102,7 @@ test("buildFfmpegArgs targets 1080x1920 H.264 with the voiceover mapped", () => 
 });
 
 test("badges: only known metrics get a chip, in order, coloured by value", () => {
-  assert.equal(badgesPng({ nova: null, nutriscore: null, green: null }), null);
+  assert.deepEqual(badgeCards({ nova: null, nutriscore: null, green: null }), []);
   const cards = badgeCards({ nova: 3, green: "a-plus" });
   assert.deepEqual(cards.map((c) => c.title), ["NOVA", "GREEN-SCORE"]);
   assert.ok(cards[0].x < cards[1].x);
@@ -142,9 +142,14 @@ test("real render: clip + still + captions -> 1080x1920 mp4", { skip: !hasFfmpeg
       { number: 1, photoPath: join(dir, "photo.jpg"), clipPath: join(dir, "clip.mp4"), clipIsVideo: true },
       { number: 2, photoPath: join(dir, "photo.jpg"), clipPath: null, clipIsVideo: false },
     ]);
-    writeFileSync(join(dir, "c.ass"), buildAss({ words: w, duration: seconds, fontName: "DejaVu Sans", score: 42, ringCenter: RING_CENTER, revealAt: 5, badges }));
+    writeFileSync(join(dir, "c.ass"), buildAss({ words: w, duration: seconds, fontName: "DejaVu Sans", score: 42, ringCenter: RING_CENTER, revealAt: 5, badges, badgeAt: [2, 4, 6] }));
     writeFileSync(join(dir, "ring.png"), ringPng(300, 42, "#facc15"));
-    writeFileSync(join(dir, "badges.png"), badgesPng(badges)!);
+    writeFileSync(join(dir, "ring0.png"), ringPng(300, 0, "#9ca3af"));
+    const cardList = badgeCards(badges);
+    const badgeFiles = cardList.map((c, i) => {
+      writeFileSync(join(dir, `b${i}.png`), badgeCardPng(c));
+      return { file: join(dir, `b${i}.png`), x: c.x, y: c.y, at: [2, 4, 6][i] };
+    });
 
     const out = join(dir, "out.mp4");
     const progress: number[] = [];
@@ -156,7 +161,8 @@ test("real render: clip + still + captions -> 1080x1920 mp4", { skip: !hasFfmpeg
         fontsDir: join(process.cwd(), "assets/fonts"),
         outFile: out,
         ringFile: join(dir, "ring.png"),
-        badgesFile: join(dir, "badges.png"),
+        ringBlankFile: join(dir, "ring0.png"),
+        badges: badgeFiles,
         revealAt: 5,
         total: seconds,
         preset: "ultrafast",
@@ -312,26 +318,37 @@ test("real render: two uploads (landscape + portrait) merged whole, slowed, noth
   }
 });
 
-test("reveal: the ring and badges can be held back", () => {
+test("reveal: ring shows ? first, badges follow the narration", () => {
   assert.equal(revealSeconds("start", 60), 0);
   assert.equal(revealSeconds("15", 60), 15);
   assert.equal(revealSeconds("end", 60), 50);
   assert.equal(revealSeconds("25", 20), 16); // short video: still leaves 4 s on screen
   assert.equal(parseReveal("nonsense"), "15");
 
-  const ass = buildAss({ words: [], duration: 60, fontName: "X", score: 42, revealAt: 15, badges: { nova: 4, nutriscore: "d", green: null } });
-  assert.match(ass, /Dialogue: 1,0:00:15\.00,0:01:00\.00,RingScore/);
-  assert.match(ass, /Dialogue: 1,0:00:15\.00,0:01:00\.00,RingLabel/);
-  assert.match(ass, /Dialogue: 2,0:00:15\.00,0:01:00\.00,BadgeLetter/);
+  const w = (text: string, start: number) => ({ text, start, end: start + 0.3 });
+  const words = [w("It", 1), w("is", 1.3), w("NOVA", 3), w("group", 3.4), w("4.", 3.8), w("Nutri-Score", 8), w("D.", 8.5), w("Green", 20), w("score", 20.3), w("B.", 20.6), w("green", 30), w("beans", 30.3)];
+  const badges = { nova: 4 as const, nutriscore: "d" as const, green: "b" as const };
+  const at = badgeTimes(badges, words, 15);
+  assert.deepEqual(at.map((t) => Math.round(t * 10) / 10), [2.9, 7.9, 19.9]);
+  assert.deepEqual(badgeTimes({ nova: 2, nutriscore: null, green: null }, [w("hello", 1)], 15), [15]); // never spoken -> fallback
+
+  const ass = buildAss({ words, duration: 60, fontName: "X", score: 42, revealAt: 15, badges });
+  assert.match(ass, /Dialogue: 1,0:00:00\.00,0:00:15\.00,RingScore,,0,0,0,,\{[^}]*\}\?/);
+  assert.match(ass, /Dialogue: 1,0:00:15\.00,0:01:00\.00,RingScore,,0,0,0,,\{[^}]*\}42/);
+  assert.match(ass, /Dialogue: 1,0:00:00\.00,0:01:00\.00,RingLabel/);
+  assert.match(ass, /Dialogue: 2,0:00:02\.85,0:01:00\.00,BadgeLetter/);
+  assert.match(ass, /Dialogue: 2,0:00:07\.85,0:01:00\.00,BadgeLetter/);
 
   const args = buildFfmpegArgs({
     segments: [{ kind: "image", file: "a.jpg", duration: 5 }],
     audioFile: "a.mp3", assFile: "c.ass", fontsDir: "f", outFile: "o.mp4",
-    ringFile: "ring.png", badgesFile: "badges.png", revealAt: 15, total: 5,
+    ringFile: "ring.png", ringBlankFile: "ring0.png", revealAt: 15, total: 5,
+    badges: [{ file: "b0.png", x: 40, y: 1325, at: 2.85 }],
   });
   const graph = args[args.indexOf("-filter_complex") + 1];
+  assert.match(graph, /overlay=\d+:250:enable=lt\(t\\,15\.00\)\[vq\]/);
   assert.match(graph, /overlay=\d+:250:enable=gte\(t\\,15\.00\)\[vr\]/);
-  assert.match(graph, /overlay=0:1310:enable=gte\(t\\,15\.00\)\[vb\]/);
+  assert.match(graph, /overlay=40:1325:enable=gte\(t\\,2\.85\)\[vb0\]/);
   const now = buildFfmpegArgs({ segments: [{ kind: "image", file: "a.jpg", duration: 5 }], audioFile: "a.mp3", assFile: "c.ass", fontsDir: "f", outFile: "o.mp4", ringFile: "ring.png", total: 5 });
   assert.doesNotMatch(now[now.indexOf("-filter_complex") + 1], /enable=/);
 });

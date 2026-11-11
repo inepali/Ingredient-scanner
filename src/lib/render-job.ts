@@ -9,7 +9,7 @@ import { buildAss } from "./captions";
 import { assignSources, planFootage, planSegments, type PhotoRef } from "./timeline";
 import { RING_CENTER, RING_SIZE, buildFfmpegArgs, probeDuration, runFfmpeg, type RenderProgress, type RenderSegment } from "./render";
 import { ringPng } from "./ring";
-import { badgesPng } from "./badges";
+import { badgeCardPng, badgeCards, badgeTimes } from "./badges";
 import { DEFAULT_REVEAL, revealSeconds, type RevealChoice } from "./reveal";
 import { BAND_HEX, bandFor } from "./scoring";
 import type { MediaRow } from "./db-types";
@@ -117,8 +117,10 @@ export async function runRender(scanId: string, jobId: string, reveal: RevealCho
 
     const off = (scan?.off_data ?? null) as Partial<OffSummary> | null;
     const badgeData = { nutriscore: off?.nutriscore ?? null, nova: off?.nova ?? null, green: off?.green ?? null };
-    const badgePng = badgesPng(badgeData);
+    const cards = badgeCards(badgeData);
     const revealAt = revealSeconds(reveal, outTotal);
+    // Each badge pops in as the narrator names it; any never spoken appears with the score.
+    const badgeAt = badgeTimes(badgeData, words, revealAt);
 
     const assFile = join(dir, "captions.ass");
     await writeFile(
@@ -130,19 +132,24 @@ export async function runRender(scanId: string, jobId: string, reveal: RevealCho
         score: scan?.overall_score ?? null,
         ringCenter: RING_CENTER,
         revealAt,
-        badges: badgePng ? badgeData : undefined,
+        badges: cards.length ? badgeData : undefined,
+        badgeAt,
       }),
     );
     let ringFile: string | undefined;
+    let ringBlankFile: string | undefined;
     if (scan?.overall_score != null) {
       ringFile = join(dir, "ring.png");
       await writeFile(ringFile, ringPng(RING_SIZE, scan.overall_score, BAND_HEX[bandFor(scan.overall_score)]));
+      ringBlankFile = join(dir, "ring-blank.png");
+      await writeFile(ringBlankFile, ringPng(RING_SIZE, 0, "#9ca3af"));
     }
 
-    let badgesFile: string | undefined;
-    if (badgePng) {
-      badgesFile = join(dir, "badges.png");
-      await writeFile(badgesFile, badgePng);
+    const badgeFiles: { file: string; x: number; y: number; at: number }[] = [];
+    for (const [i, c] of cards.entries()) {
+      const file = join(dir, `badge${i}.png`);
+      await writeFile(file, badgeCardPng(c));
+      badgeFiles.push({ file, x: c.x, y: c.y, at: badgeAt[i] });
     }
 
     // Encode (10-90%): ffmpeg reports how many seconds of video it has written.
@@ -158,7 +165,8 @@ export async function runRender(scanId: string, jobId: string, reveal: RevealCho
         fontsDir: process.env.FONTS_DIR ?? join(process.cwd(), "assets", "fonts"),
         outFile,
         ringFile,
-        badgesFile,
+        ringBlankFile,
+        badges: badgeFiles,
         revealAt,
         total: outTotal,
         preset: process.env.RENDER_PRESET || "veryfast",

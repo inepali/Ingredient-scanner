@@ -101,7 +101,7 @@ FACTS
 - Overall feel (say it in words if you want, never as a number): ${overallFeel(i.overall)}
 - Allergens on the label: ${i.allergens.join(", ") || "none stated"}
 - Ingredients on the label: ${i.ingredients.length} (${c.counts.good} good, ${c.counts.fair} fair, ${c.counts.poor} poor)
-${i.offFacts ? `- Open Food Facts says: ${i.offFacts}. Use only as supporting evidence inside the good or poor section (for example, NOVA group 4 means ultra-processed), never as the headline.\n` : ""}
+${i.offFacts ? `- Open Food Facts says: ${i.offFacts}. Use only as supporting evidence inside the good or poor section (for example, NOVA group 4 means ultra-processed), never as the headline. Say each of these by name exactly once, in the section where it fits (for example \"Nutri-Score D\", \"NOVA group 4\", \"Green-Score B\"), because the video shows a badge for it the moment you say it.\n` : ""}
 GOOD (green) candidates, best first:
 ${lines(c.good)}
 
