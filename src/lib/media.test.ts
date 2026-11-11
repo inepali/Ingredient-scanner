@@ -153,7 +153,9 @@ test("pickCandidates: best greens, worst reds, trivial water skipped", () => {
 test("prompt: groups and tone in, no numeric scores, ends on a question rule", () => {
   const p = buildPrompt({ productName: "Oat Bar", overall: 52, allergens: [], ingredients: ings, tone: "playful" });
   assert.match(p, /Upbeat, witty/);
-  assert.match(p, /GOOD \(green\)[^]*Whole grain oats[^]*FAIR \(yellow\)[^]*Wheat flour[^]*POOR \(red\)[^]*Red 40/);
+  assert.match(p, /FIVE BEST[^]*Whole grain oats[^]*FIVE WORST[^]*Red 40/);
+  assert.match(p, /may be harmful for regular consumption/); // under 60: the concerning verdict
+  assert.doesNotMatch(p, /VERDICT FOR THIS PRODUCT: it is mostly good/);
   assert.match(p, /Do you eat this\?/);
   assert.match(p, /never say or show any numeric score/i);
   assert.doesNotMatch(p, /\/100/);
@@ -163,7 +165,14 @@ test("prompt: groups and tone in, no numeric scores, ends on a question rule", (
 
 test("prompt: empty group is shown as none", () => {
   const p = buildPrompt({ productName: null, overall: 90, allergens: [], ingredients: [{ name: "Oats", score: 95, reason: null }] });
-  assert.match(p, /POOR \(red\) candidates, worst first:\n\(none\)/);
+  assert.match(p, /VERDICT FOR THIS PRODUCT: it is mostly good/); // 60 and over: praise, extra detail on the worse ones
+  assert.match(p, /FIVE WORST[^]*Oats \[good\]/);
+  assert.match(p, /if there are none, say so/);
+  assert.doesNotMatch(p, /may be harmful for regular consumption/);
+  const c = pickCandidates(ings);
+  assert.equal(c.best.length, 5);
+  assert.equal(c.worst[0].group, "poor");
+  assert.ok(c.best[0].name !== c.worst[0].name);
 });
 
 test("ensureHook adds a question only when missing", () => {

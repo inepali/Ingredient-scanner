@@ -145,3 +145,7 @@ The phone UI follows iOS conventions: system font, grey grouped background, whit
 ## Score reveal
 
 Rating badges stack top to bottom at the bottom-left. The score ring is on screen from the first frame showing a "?" and the real number and arc appear at the time you pick (right away, 10 s, 15 s default, 25 s, or the last 10 s). Each rating badge (NOVA, Nutri-Score, Green-Score) pops in the moment the narrator says its name; one never spoken appears with the score. The script prompt asks the AI to name each one once. Videos made earlier must be generated again.
+
+## Script plan: five best, then five worst
+
+The AI script names the five best ingredients first, asks viewers to stay, then counts down the five worst with the very worst last. Under 60 overall it ends with a plain "may not be a healthy choice / may be harmful for regular consumption" verdict. At 60 or over it says the product is mostly good and gives extra detail on any worse ingredients. Word budget is now 125–175.

@@ -47,6 +47,9 @@ const TRIVIAL = /^(water|filtered water|purified water|spring water|carbonated w
  */
 export function pickCandidates(ings: ScriptInput["ingredients"]): Record<Group, Candidate[]> & {
   counts: Record<Group, number>;
+  /** The five best ingredients overall (whatever their group) and the five worst, each with its group. */
+  best: (Candidate & { group: Group })[];
+  worst: (Candidate & { group: Group })[];
 } {
   const rows = ings.map((x, i) => ({ ...x, position: i + 1, group: groupFor(x.score) }));
   const by = (g: Group) => rows.filter((r) => r.group === g);
@@ -63,7 +66,14 @@ export function pickCandidates(ings: ScriptInput["ingredients"]): Record<Group, 
     .sort((a, b) => a.score - b.score || a.position - b.position)
     .slice(0, 5);
 
+  const ranked = rows.filter((r) => !TRIVIAL.test(r.name.trim()));
+  const withGroup = (r: (typeof rows)[number]) => ({ ...toCand(r), group: r.group });
+  const best = [...ranked].sort((a, b) => b.score - a.score || a.position - b.position).slice(0, 5).map(withGroup);
+  const worst = [...ranked].sort((a, b) => a.score - b.score || a.position - b.position).slice(0, 5).map(withGroup);
+
   return {
+    best,
+    worst,
     good: good.map(toCand),
     fair: fair.map(toCand),
     poor: poor.map(toCand),
@@ -77,7 +87,7 @@ function overallFeel(overall: number): string {
 
 /** About 2.5 spoken words per second: 60 seconds is roughly 145 words. */
 export const MIN_WORDS = 125;
-export const MAX_WORDS = 165;
+export const MAX_WORDS = 175;
 
 export function wordCount(script: VideoScript): number {
   return script.scenes.reduce((n, sc) => n + (sc.voiceover.trim() ? sc.voiceover.trim().split(/\s+/).length : 0), 0);
@@ -92,6 +102,12 @@ export function buildPrompt(i: ScriptInput) {
       ? "(none)"
       : list.map((x) => `- ${x.name} (#${x.position} on the label)${x.reason ? `: ${x.reason}` : ""}`).join("\n");
 
+  const tagged = (list: (Candidate & { group: Group })[]) =>
+    list.length === 0
+      ? "(none)"
+      : list.map((x) => `- ${x.name} [${x.group}] (#${x.position} on the label)${x.reason ? `: ${x.reason}` : ""}`).join("\n");
+  const concerning = i.overall < 60;
+
   return `You write 60-second vertical (9:16) videos for TikTok and Instagram Reels that read a packaged food's ingredient label out loud and explain what it means for your health. You never say or show any numeric score.
 
 TONE: ${tone.prompt}
@@ -102,29 +118,31 @@ FACTS
 - Allergens on the label: ${i.allergens.join(", ") || "none stated"}
 - Ingredients on the label: ${i.ingredients.length} (${c.counts.good} good, ${c.counts.fair} fair, ${c.counts.poor} poor)
 ${i.offFacts ? `- Open Food Facts says: ${i.offFacts}. Use only as supporting evidence inside the good or poor section (for example, NOVA group 4 means ultra-processed), never as the headline. Say each of these by name exactly once, in the section where it fits (for example \"Nutri-Score D\", \"NOVA group 4\", \"Green-Score B\"), because the video shows a badge for it the moment you say it.\n` : ""}
-GOOD (green) candidates, best first:
-${lines(c.good)}
+THE FIVE BEST ingredients on this label, best first (group in brackets; never say the group or any number out loud):
+${tagged(c.best)}
 
-FAIR (yellow) candidates:
-${lines(c.fair)}
-
-POOR (red) candidates, worst first:
-${lines(c.poor)}
+THE FIVE WORST ingredients on this label, worst first:
+${tagged(c.worst)}
 
 Return ONLY a JSON object (no markdown fences) shaped like:
 { "title": string, "scenes": [ { "section": "hook" | "good" | "fair" | "poor" | "outro", "seconds": integer, "visual": string, "voiceover": string${photoCount ? ', "photo": integer' : ""} } ] }
 
+STORY PLAN: "five best first, five worst last". Name the five best ingredients first, then ask viewers to stay until you reveal the five worst. ${
+    concerning
+      ? "VERDICT FOR THIS PRODUCT: it falls on the concerning side. Say plainly, near the end, that taken together these ingredients may not be a healthy choice and that the worst ones may be harmful for regular consumption. Use \"may\" and \"can\", never state a medical fact the facts above do not support, and never call the product poison."
+      : "VERDICT FOR THIS PRODUCT: it is mostly good. Say so honestly, and let the five best get a little more time. Then, for the worse ingredients, give extra detail: only list as \"worse\" the ones marked [fair] or [poor] (skip any marked [good]; if there are fewer than five, name only those, and if there are none, say so with relief). For each worse one, say what it is, why it is there, and the specific health concern, in two short sentences instead of one."
+  }
+
 STRUCTURE (in this order, 7 to 9 scenes, "seconds" adding up to about 60; the retention hooks below are woven into these scenes, they are not extra scenes):
-1. "hook" (about 4 s): a scroll-stopper. The first sentence is 12 words or fewer and creates a curiosity gap or a contradiction about THIS product (see MAKE IT WORTH WATCHING). Do not mention a score.
-2. "good" (1 or 2 scenes): choose 2 or 3 of the GOOD candidates. For each, say in plain words one health benefit it may offer ("may support digestion", "a source of protein"). Skip plain water or anything with nothing meaningful to say.
-3. "fair" (1 scene): choose 1 or 2 of the FAIR candidates and say honestly whether they help your health or not ("neutral", "fine in small amounts", "doesn't add much"). Be fair, not dramatic.
-4. "poor" (1 or 2 scenes): choose 2 or 3 of the POOR candidates. For each, explain the specific concern for your health in plain words (for example added sugar, a refined oil, a heavily processed additive) and why it matters. Say "may" where the science is not settled.
-5. "outro" (about 8 s): a one-line takeaway in words (no number), then a "Try this instead" tip: tell people what to look for in a better version of this kind of product, as concrete label rules they can check in the shop ("look for one with five ingredients or fewer and no added sugar"). Name no brands and invent no numbers beyond simple label rules. Include one short, quotable "send this to someone who…" line that makes people want to share it. Then finish with a short question that invites comments, such as "Do you eat this?". The very last words of the video MUST be a question.
-If a group is empty, skip it with one honest line (for example, "Honestly, I didn't find much green here.").
+1. "hook" (about 4 s): a scroll-stopper that promises the reveal, for example "I'll show you the five best and the five worst things in this. Stay for the last one." The first sentence is 12 words or fewer and creates a curiosity gap or a contradiction about THIS product (see MAKE IT WORTH WATCHING). Do not mention a score.
+2. "good" (2 scenes): the FIVE BEST ingredients, best first, one short line each (about 10 to 12 words): its name and one health benefit in plain words ("may support digestion", "a source of protein"). If an ingredient has nothing good to say about it, say it is simply harmless. End this part by asking viewers to stay: "Now the five I'd worry about. Stay to the end."
+3. "poor" (2 or 3 scenes): the FIVE WORST ingredients, saving the very worst for last (count down: fifth worst to worst). Explain the specific concern for your health for each in plain words (for example added sugar, a refined oil, a heavily processed additive) and why it matters. Say "may" where the science is not settled.
+4. "outro" (about 8 s): the verdict in words (no number), then a "Try this instead" tip: tell people what to look for in a better version of this kind of product, as concrete label rules they can check in the shop ("look for one with five ingredients or fewer and no added sugar"). Name no brands and invent no numbers beyond simple label rules. Include one short, quotable "send this to someone who…" line. Then finish with a short question that invites comments, such as "Do you eat this?". The very last words of the video MUST be a question.
+Do not use a "fair" scene. If the label has fewer than five ingredients, use what exists.
 
 KEEP PEOPLE WATCHING (retention hooks). Viewers tend to drop off around 10-15 seconds, so plant three hooks. Count time at about 2.5 spoken words per second:
 - Hook at about 0:15: the last sentence of the scene that ends near the 15-second mark is an open-loop teaser that makes people stay for what comes next, for example "But wait until you hear what's hiding in the next one." Name no ingredient and no number in the teaser itself.
-- Hook at about 0:35: the last sentence of the scene that ends near the 35-second mark is a second, stronger teaser pointing at the most concerning ingredient, which you save for after this point (put the worst POOR candidate in the final stretch). If nothing on the label is concerning, tease the one thing that surprised you.
+- Hook at about 0:35: the last sentence of the scene that ends near the 35-second mark is a second, stronger teaser pointing at the most concerning ingredient, which you save for after this point (put the very worst of the five in the final stretch). If nothing on the label is concerning, tease the one thing that surprised you.
 - Closing hook: end the "outro" with the takeaway, the "Try this instead" tip, a nudge to comment, and the final question from rule 5.
 Pay each teaser off within the next 10-20 seconds. A teaser must never promise something the video does not deliver, and must not be clickbait, a scare tactic or a numeric score. Plan the scene lengths so a scene boundary lands near 0:15 and near 0:35.
 MAKE IT WORTH WATCHING AND SHARING (story craft). Treat the label like a short mystery with a reveal, not a list:
