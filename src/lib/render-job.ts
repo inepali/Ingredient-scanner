@@ -142,7 +142,7 @@ export async function runRender(scanId: string, jobId: string, reveal: RevealCho
       ringFile = join(dir, "ring.png");
       await writeFile(ringFile, ringPng(RING_SIZE, scan.overall_score, BAND_HEX[bandFor(scan.overall_score)]));
       ringBlankFile = join(dir, "ring-blank.png");
-      await writeFile(ringBlankFile, ringPng(RING_SIZE, 0, "#9ca3af"));
+      await writeFile(ringBlankFile, ringPng(RING_SIZE, 28, "#3b82f6"));
     }
 
     const badgeFiles: { file: string; x: number; y: number; at: number }[] = [];

@@ -6,14 +6,14 @@ import type { Word } from "./captions.ts";
 export type BadgeData = Pick<OffSummary, "nutriscore" | "nova" | "green">;
 
 // Kept left of TikTok's like/comment/share buttons (right ~150px) and above its caption area (bottom ~470px).
-export const BADGE_TOP = 1300;
+export const BADGE_TOP = 1295;
 export const BADGE_STRIP_H = 150;
 const WIDTH = 1080;
-const COL_W = 360;
-const BAR_H = 112;
+const COL_W = 400;
+const BAR_H = 128;
 const BAR_LEFT = 36;
 const GAP = 12;
-const CHIP_R = 38;
+const CHIP_R = 46;
 
 const LIGHT_TEXT = "#171717";
 const NOVA = [["1", "#038141", "Unprocessed"], ["2", "#FECB02", "Ingredient"], ["3", "#EE8100", "Processed"], ["4", "#E63E11", "Ultra-processed"]] as const;
@@ -62,9 +62,9 @@ export function badgeBar(d: Partial<BadgeData>): BadgeBar | null {
       textColor: color === "#FECB02" ? LIGHT_TEXT : "#FFFFFF",
       x: cx0,
       y: top,
-      chipX: cx0 + 12 + CHIP_R,
+      chipX: cx0 + 14 + CHIP_R,
       chipY: cy,
-      textX: cx0 + 12 + 2 * CHIP_R + 10,
+      textX: cx0 + 14 + 2 * CHIP_R + 12,
       textY: cy,
       w: COL_W,
     };
@@ -99,7 +99,7 @@ function fillRound(buf: Uint8Array, bw: number, bh: number, x: number, y: number
 /** One card as its own transparent PNG (COL_W x BAR_H); place it at (card.x, card.y). */
 export function badgeCardPng(card: BadgeCard): Buffer {
   const buf = new Uint8Array(COL_W * BAR_H * 4);
-  fillRound(buf, COL_W, BAR_H, 0, 0, COL_W, BAR_H, BAR_H / 2, [12, 12, 12], 0.72);
+  fillRound(buf, COL_W, BAR_H, 0, 0, COL_W, BAR_H, BAR_H / 2, [10, 10, 10], 0.88);
   const cx = card.chipX - card.x;
   const cy = BAR_H / 2;
   fillRound(buf, COL_W, BAR_H, cx - CHIP_R - 4, cy - CHIP_R - 4, 2 * CHIP_R + 8, 2 * CHIP_R + 8, CHIP_R + 4, [255, 255, 255], 1);
@@ -141,10 +141,10 @@ export function badgeDialogues(d: Partial<BadgeData>, starts: string[], end: str
   const out: string[] = [];
   badgeCards(d).forEach((c, i) => {
     const start = starts[i];
-    const fs = c.label.length > 1 ? 38 : 50;
-    out.push(`Dialogue: 2,${start},${end},BadgeLetter,,0,0,0,,{\\an5\\pos(${c.chipX},${c.chipY + 4})\\fs${fs}\\c${bgr(c.textColor)}}${c.label}`);
-    out.push(`Dialogue: 2,${start},${end},BadgeTitle,,0,0,0,,{\\an4\\pos(${c.textX},${c.textY - 20})\\fs22\\c&HCCCCCC&}${c.title}`);
-    out.push(`Dialogue: 2,${start},${end},BadgeTitle,,0,0,0,,{\\an4\\pos(${c.textX},${c.textY + 14})\\fs${c.caption.length > 14 ? 24 : c.caption.length > 9 ? 28 : 32}\\c&HFFFFFF&}${c.caption}`);
+    const fs = c.label.length > 1 ? 46 : 62;
+    out.push(`Dialogue: 2,${start},${end},BadgeLetter,,0,0,0,,{\\an5\\pos(${c.chipX},${c.chipY + 5})\\fs${fs}\\c${bgr(c.textColor)}}${c.label}`);
+    out.push(`Dialogue: 2,${start},${end},BadgeTitle,,0,0,0,,{\\an4\\pos(${c.textX},${c.textY - 28})\\fs26\\c&HF0F0F0&}${c.title}`);
+    out.push(`Dialogue: 2,${start},${end},BadgeTitle,,0,0,0,,{\\an4\\pos(${c.textX},${c.textY + 20})\\fs${c.caption.length > 14 ? 25 : c.caption.length > 9 ? 31 : 38}\\c&HFFFFFF&}${c.caption}`);
   });
   return out;
 }

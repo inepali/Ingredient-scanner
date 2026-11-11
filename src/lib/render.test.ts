@@ -144,7 +144,7 @@ test("real render: clip + still + captions -> 1080x1920 mp4", { skip: !hasFfmpeg
     ]);
     writeFileSync(join(dir, "c.ass"), buildAss({ words: w, duration: seconds, fontName: "DejaVu Sans", score: 42, ringCenter: RING_CENTER, revealAt: 5, badges, badgeAt: [2, 4, 6] }));
     writeFileSync(join(dir, "ring.png"), ringPng(380, 42, "#facc15"));
-    writeFileSync(join(dir, "ring0.png"), ringPng(380, 0, "#9ca3af"));
+    writeFileSync(join(dir, "ring0.png"), ringPng(380, 28, "#3b82f6"));
     const cardList = badgeCards(badges);
     const badgeFiles = cardList.map((c, i) => {
       writeFileSync(join(dir, `b${i}.png`), badgeCardPng(c));
