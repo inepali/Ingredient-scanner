@@ -335,6 +335,9 @@ test("reveal: ring shows ? first, badges follow the narration", () => {
   const ass = buildAss({ words, duration: 60, fontName: "X", score: 42, revealAt: 15, badges });
   assert.match(ass, /Dialogue: 1,0:00:00\.00,0:00:15\.00,RingScore,,0,0,0,,\{[^}]*\}\?/);
   assert.match(ass, /Dialogue: 1,0:00:15\.00,0:01:00\.00,RingScore,,0,0,0,,\{[^}]*\}42/);
+  const spin = ass.split("\n").find((l) => l.includes(",Spin,,"))!;
+  assert.ok((spin.match(/\\1c&H/g) ?? []).length > 10, "spinner should hop between colours");
+  assert.match(spin, /\\1c&H[0-9A-F]{6}&\)\\t\(0,15000/); // last colour change is before the rotation tag
   assert.match(ass, /Dialogue: 1,0:00:00\.00,0:00:15\.00,Spin,,0,0,0,,\{[^}]*\\t\(0,15000,\\frz-\d+\)[^}]*\\p1\}m /);
   assert.match(ass, /Dialogue: 1,0:00:00\.00,0:01:00\.00,RingLabel/);
   assert.match(ass, /Dialogue: 2,0:00:02\.85,0:01:00\.00,BadgeLetter/);

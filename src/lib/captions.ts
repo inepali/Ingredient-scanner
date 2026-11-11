@@ -106,6 +106,28 @@ function spinnerPath(cx: number, cy: number, radius: number, stroke: number, swe
   return `m ${f(pts[0])} l ${pts.slice(1).map(f).join(" ")}`;
 }
 
+const SPIN_COLORS = ["#038141", "#85BB2F", "#FECB02", "#EE8100", "#E63E11"]; // the five rating colours
+const assColor = (c: string) => `&H${[5, 3, 1].map((i) => c.slice(i, i + 2)).join("").toUpperCase()}&`;
+
+/** \\1c tags that hop between the five rating colours in a (repeatable) shuffled order, then settle on `final` for the last second. */
+function spinnerColors(reveal: number, final: string, seed: number): string {
+  const STEP = 0.6;
+  let x = (Math.round(seed) * 9301 + 49297) % 233280;
+  const rnd = () => ((x = (x * 9301 + 49297) % 233280) / 233280);
+  const tags: string[] = [];
+  let prev = -1;
+  const hops = Math.max(1, Math.floor((reveal - 1) / STEP));
+  for (let i = 1; i <= hops; i++) {
+    let k = Math.floor(rnd() * SPIN_COLORS.length);
+    if (k === prev) k = (k + 1) % SPIN_COLORS.length;
+    prev = k;
+    const t = i * STEP;
+    tags.push(`\\t(${Math.round((t - 0.25) * 1000)},${Math.round(t * 1000)},\\1c${assColor(SPIN_COLORS[k])})`);
+  }
+  tags.push(`\\t(${Math.round((reveal - 1) * 1000)},${Math.round((reveal - 0.4) * 1000)},\\1c${assColor(final)})`);
+  return tags.join("");
+}
+
 /** Distance (px, in a 1080-wide video) from the ring centre to the HEALTHY / SCORE labels. */
 const RING_LABEL_OFFSET = 80;
 
@@ -119,6 +141,8 @@ export function buildAss(opts: {
   ringCenter?: { x: number; y: number };
   /** Seconds into the video when the score number replaces the "?" in the ring. */
   revealAt?: number;
+  /** Colour of the real score arc; the spinner settles on it just before the reveal. */
+  ringColor?: string;
   /** Seconds when each badge card appears (same order as the cards). Defaults to revealAt. */
   badgeAt?: number[];
   /** NOVA / Nutri-Score / Green-Score cards along the bottom (only the known ones are drawn). */
@@ -143,7 +167,7 @@ export function buildAss(opts: {
       const k = RING_SIZE / 132;
       const turns = (reveal / 1.4) * 360;
       lines.push(
-        `Dialogue: 1,${assTime(0)},${show},Spin,,0,0,0,,{\\an7\\pos(0,0)\\org(${c.x},${c.y})\\1c&HF6823B&\\bord0\\shad0\\t(0,${Math.round(reveal * 1000)},\\frz-${Math.round(turns)})\\p1}${spinnerPath(c.x, c.y, 54 * k, 10 * k, 100)}`,
+        `Dialogue: 1,${assTime(0)},${show},Spin,,0,0,0,,{\\an7\\pos(0,0)\\org(${c.x},${c.y})\\1c${assColor(SPIN_COLORS[0])}\\bord0\\shad0${spinnerColors(reveal, opts.ringColor ?? "#facc15", opts.score)}\\t(0,${Math.round(reveal * 1000)},\\frz-${Math.round(turns)})\\p1}${spinnerPath(c.x, c.y, 54 * k, 10 * k, 100)}`,
       );
     }
     lines.push(`Dialogue: 1,${show},${end},RingScore,,0,0,0,,{\\an5\\pos(${c.x},${c.y})}${Math.round(opts.score)}`);

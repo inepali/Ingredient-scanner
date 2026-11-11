@@ -132,6 +132,7 @@ export async function runRender(scanId: string, jobId: string, reveal: RevealCho
         score: scan?.overall_score ?? null,
         ringCenter: RING_CENTER,
         revealAt,
+        ringColor: scan?.overall_score != null ? BAND_HEX[bandFor(scan.overall_score)] : undefined,
         badges: cards.length ? badgeData : undefined,
         badgeAt,
       }),
