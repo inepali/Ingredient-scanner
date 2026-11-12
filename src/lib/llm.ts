@@ -4,6 +4,9 @@
 type GeminiResponse = { candidates?: { content?: { parts?: { text?: string }[] } }[] };
 type AnthropicResponse = { content?: { type: string; text?: string }[]; stop_reason?: string };
 
+/** Prefix of the error when the model ran out of room before answering; callers can retry with a shorter prompt. */
+export const TOO_LONG = "[ran-out-of-room] ";
+
 export type LlmImage = { data: Buffer; mediaType: string };
 
 // Gemini caps a request near 20 MB and Claude caps an image near 5 MB (after base64).
@@ -50,26 +53,31 @@ export async function generateText(prompt: string, images: LlmImage[] = []): Pro
 
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error("Set GEMINI_API_KEY or ANTHROPIC_API_KEY");
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({
-      model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5",
-      max_tokens: 16000,
-      messages: [
-        {
-          role: "user",
-          content: [
-            ...pics.map((i) => ({
-              type: "image",
-              source: { type: "base64", media_type: i.mediaType, data: i.data.toString("base64") },
-            })),
-            { type: "text", text: prompt },
-          ],
-        },
-      ],
-    }),
-  });
+  const send = (withoutThinking: boolean) =>
+    fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({
+        model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5",
+        max_tokens: 8000,
+        // Thinking tokens count against max_tokens, and on a long label the model can think until nothing is left for the answer.
+        ...(withoutThinking ? { thinking: { type: "disabled" } } : {}),
+        messages: [
+          {
+            role: "user",
+            content: [
+              ...pics.map((i) => ({
+                type: "image",
+                source: { type: "base64", media_type: i.mediaType, data: i.data.toString("base64") },
+              })),
+              { type: "text", text: prompt },
+            ],
+          },
+        ],
+      }),
+    });
+  let res = await send(true);
+  if (res.status === 400 && /thinking/i.test(await res.clone().text())) res = await send(false); // model doesn't take the switch
   if (!res.ok) throw new Error(`Anthropic API ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const body = (await res.json()) as AnthropicResponse;
   const text = (body.content ?? [])
@@ -78,7 +86,7 @@ export async function generateText(prompt: string, images: LlmImage[] = []): Pro
     .join("");
   if (!text.trim()) {
     const blocks = (body.content ?? []).map((b) => b.type).join(", ") || "none";
-    throw new Error(`Claude returned no text (stop reason: ${body.stop_reason ?? "unknown"}; content blocks: ${blocks}). Try again.`);
+    throw new Error(`${body.stop_reason === "max_tokens" ? TOO_LONG : ""}Claude returned no text (stop reason: ${body.stop_reason ?? "unknown"}; content blocks: ${blocks}). Try again.`);
   }
   return text;
 }

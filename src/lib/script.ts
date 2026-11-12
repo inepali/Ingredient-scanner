@@ -1,4 +1,4 @@
-import { generateText, type LlmImage } from "./llm.ts";
+import { generateText, TOO_LONG, type LlmImage } from "./llm.ts";
 import { DEFAULT_TONE, TONES, parseTone, type Tone } from "./tones.ts";
 
 export { DEFAULT_TONE, TONES, parseTone, type Tone };
@@ -93,10 +93,14 @@ export function wordCount(script: VideoScript): number {
   return script.scenes.reduce((n, sc) => n + (sc.voiceover.trim() ? sc.voiceover.trim().split(/\s+/).length : 0), 0);
 }
 
-export function buildPrompt(i: ScriptInput) {
+/** A label this long is summarised: the model only ever sees the ten ingredients that matter, plus a note not to try to cover the rest. */
+export const LONG_LABEL = 25;
+
+export function buildPrompt(i: ScriptInput, compact = false) {
   const photoCount = Math.min(i.photos?.length ?? 0, 4);
   const tone = TONES[i.tone ?? DEFAULT_TONE];
   const c = pickCandidates(i.ingredients);
+  const long = compact || i.ingredients.length > LONG_LABEL;
   const lines = (list: Candidate[]) =>
     list.length === 0
       ? "(none)"
@@ -105,13 +109,18 @@ export function buildPrompt(i: ScriptInput) {
   const tagged = (list: (Candidate & { group: Group })[]) =>
     list.length === 0
       ? "(none)"
-      : list.map((x) => `- ${x.name} [${x.group}] (#${x.position} on the label)${x.reason ? `: ${x.reason}` : ""}`).join("\n");
+      : list.map((x) => `- ${x.name} [${x.group}] (#${x.position} on the label)${x.reason ? `: ${x.reason.slice(0, 160)}` : ""}`).join("\n");
   const concerning = i.overall < 60;
+
+  const longNote = long
+    ? `\nLONG LABEL: this product lists ${i.ingredients.length} ingredients. Do NOT try to cover them all and do not deliberate over the rest: use only the ingredients listed in the two lists below, say once that the list is long (\"a very long ingredient list\"), and answer straight away with the JSON.\n`
+    : "";
 
   return `You write 60-second vertical (9:16) videos for TikTok and Instagram Reels that read a packaged food's ingredient label out loud and explain what it means for your health. You never say or show any numeric score.
 
 TONE: ${tone.prompt}
 
+${longNote}
 FACTS
 - Product: ${i.productName ?? "unnamed product"}
 - Overall feel (say it in words if you want, never as a number): ${overallFeel(i.overall)}
@@ -216,11 +225,24 @@ export function ensureHook(script: VideoScript): VideoScript {
 export async function createScript(input: ScriptInput): Promise<VideoScript> {
   const base = buildPrompt(input);
   let prompt = base;
+  let compactPrompt = false;
+  let photos = input.photos ?? [];
   let best: VideoScript | null = null;
   let lastText = "";
   // Up to 3 tries: bad/empty output is retried as is; a draft that runs too long or short is retried with its word count.
   for (let attempt = 0; attempt < 3; attempt++) {
-    lastText = await generateText(prompt, input.photos ?? []);
+    try {
+      lastText = await generateText(prompt, photos);
+    } catch (err) {
+      // Out of room on a long label: try again with the short prompt (and fewer photos), instead of failing.
+      if (err instanceof Error && err.message.startsWith(TOO_LONG) && attempt < 2) {
+        compactPrompt = true;
+        photos = photos.slice(0, 1);
+        prompt = buildPrompt({ ...input, photos }, true);
+        continue;
+      }
+      throw err instanceof Error ? new Error(err.message.replace(TOO_LONG, "")) : err;
+    }
     let script: VideoScript;
     try {
       script = ensureHook(parseScript(lastText));
@@ -235,7 +257,7 @@ export async function createScript(input: ScriptInput): Promise<VideoScript> {
     if (words >= MIN_WORDS && words <= MAX_WORDS) return script;
     // Keep the draft closest to a minute in case no retry lands in range.
     if (!best || Math.abs(words - 145) < Math.abs(wordCount(best) - 145)) best = script;
-    prompt = `${base}
+    prompt = `${compactPrompt ? buildPrompt(input, true) : base}
 
 Your previous draft had ${words} words, which is ${words > MAX_WORDS ? "too long" : "too short"} for a 1-minute video. Rewrite it with between ${MIN_WORDS} and ${MAX_WORDS} words total (aim for 145).`;
   }

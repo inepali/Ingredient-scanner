@@ -241,3 +241,13 @@ test("parseCopy returns a YouTube block, falling back to Instagram's when the mo
   const without = parseCopy('{"tiktok": {"title": "t", "description": "d", "hashtags": []}, "instagram": {"title": "i", "description": "d", "hashtags": []}}');
   assert.equal(without.youtube.title, "i");
 });
+
+test("prompt: a very long label is gated (summarised, reasons trimmed, no deliberating)", () => {
+  const many = Array.from({ length: 60 }, (_, n) => ({ name: `Ingredient ${n}`, score: (n * 7) % 100, reason: "x".repeat(500) }));
+  const p = buildPrompt({ productName: "Big Mix", overall: 50, allergens: [], ingredients: many });
+  assert.match(p, /LONG LABEL: this product lists 60 ingredients/);
+  assert.doesNotMatch(p, /x{161}/); // reasons are cut to 160 characters
+  const short = buildPrompt({ productName: "Oats", overall: 50, allergens: [], ingredients: many.slice(0, 8) });
+  assert.doesNotMatch(short, /LONG LABEL/);
+  assert.match(buildPrompt({ productName: "Oats", overall: 50, allergens: [], ingredients: many.slice(0, 8) }, true), /LONG LABEL/);
+});
