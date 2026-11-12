@@ -175,13 +175,14 @@ test("prompt: empty group is shown as none", () => {
   assert.ok(c.best[0].name !== c.worst[0].name);
 });
 
-test("ensureHook adds a question only when missing", () => {
-  const base = { title: "T", scenes: [{ seconds: 5, visual: "v", voiceover: "Skip the sugary stuff." }] };
-  assert.equal(ensureHook(base).scenes[0].voiceover, "Skip the sugary stuff. Do you eat this?");
-  const asked = { title: "T", scenes: [{ seconds: 5, visual: "v", voiceover: "Would you still eat this?" }] };
-  assert.equal(ensureHook(asked), asked);
-  const quoted = { title: "T", scenes: [{ seconds: 5, visual: "v", voiceover: 'Be honest, "do you eat this?"' }] };
-  assert.equal(ensureHook(quoted), quoted);
+test("ensureHook ends on a question plus a like-and-comment line", () => {
+  const one = (voiceover: string) => ({ title: "T", scenes: [{ seconds: 5, visual: "v", voiceover }] });
+  const end = (v: string) => ensureHook(one(v)).scenes[0].voiceover;
+  assert.equal(end("Skip the sugary stuff."), "Skip the sugary stuff. Do you eat this? Like and comment your answer.");
+  assert.equal(end("Would you still eat this?"), "Would you still eat this? Like and comment your answer.");
+  assert.equal(end('Be honest, "do you eat this?"'), 'Be honest, "do you eat this?" Like and comment your answer.');
+  const done = one("Would you eat this? Like and comment below.");
+  assert.equal(ensureHook(done), done); // already complete: untouched
 });
 
 test("parseScript keeps valid sections; parseTone falls back", () => {

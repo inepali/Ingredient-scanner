@@ -146,13 +146,13 @@ STRUCTURE (in this order, 7 to 9 scenes, "seconds" adding up to about 60; the re
 1. "hook" (about 4 s): a scroll-stopper that promises the reveal, for example "I'll show you the five best and the five worst things in this. Stay for the last one." The first sentence is 12 words or fewer and creates a curiosity gap or a contradiction about THIS product (see MAKE IT WORTH WATCHING). Do not mention a score.
 2. "good" (2 scenes): the FIVE BEST ingredients, best first, one short line each (about 10 to 12 words): its name and one health benefit in plain words ("may support digestion", "a source of protein"). If an ingredient has nothing good to say about it, say it is simply harmless. End this part by asking viewers to stay: "Now the five I'd worry about. Stay to the end."
 3. "poor" (2 or 3 scenes): the FIVE WORST ingredients, saving the very worst for last (count down: fifth worst to worst). Explain the specific concern for your health for each in plain words (for example added sugar, a refined oil, a heavily processed additive) and why it matters. Say "may" where the science is not settled.
-4. "outro" (about 8 s): the verdict in words (no number), then a "Try this instead" tip: tell people what to look for in a better version of this kind of product, as concrete label rules they can check in the shop ("look for one with five ingredients or fewer and no added sugar"). Name no brands and invent no numbers beyond simple label rules. Include one short, quotable "send this to someone who…" line. Then finish with a short question that invites comments, such as "Do you eat this?". The very last words of the video MUST be a question.
+4. "outro" (about 8 s): the verdict in words (no number), then a "Try this instead" tip: tell people what to look for in a better version of this kind of product, as concrete label rules they can check in the shop ("look for one with five ingredients or fewer and no added sugar"). Name no brands and invent no numbers beyond simple label rules. Include one short, quotable "send this to someone who…" line. Then finish with a short question that invites comments, such as "Do you eat this?", and put one last short call to action right after it: "Like and comment your answer." The video MUST end with that question followed by that call to action (like and comment).
 Do not use a "fair" scene. If the label has fewer than five ingredients, use what exists.
 
 KEEP PEOPLE WATCHING (retention hooks). Viewers tend to drop off around 10-15 seconds, so plant three hooks. Count time at about 2.5 spoken words per second:
 - Hook at about 0:15: the last sentence of the scene that ends near the 15-second mark is an open-loop teaser that makes people stay for what comes next, for example "But wait until you hear what's hiding in the next one." Name no ingredient and no number in the teaser itself.
 - Hook at about 0:35: the last sentence of the scene that ends near the 35-second mark is a second, stronger teaser pointing at the most concerning ingredient, which you save for after this point (put the very worst of the five in the final stretch). If nothing on the label is concerning, tease the one thing that surprised you.
-- Closing hook: end the "outro" with the takeaway, the "Try this instead" tip, a nudge to comment, and the final question from rule 5.
+- Closing hook: end the "outro" with the takeaway, the "Try this instead" tip, the final question, and the like-and-comment call to action from rule 4.
 Pay each teaser off within the next 10-20 seconds. A teaser must never promise something the video does not deliver, and must not be clickbait, a scare tactic or a numeric score. Plan the scene lengths so a scene boundary lands near 0:15 and near 0:35.
 MAKE IT WORTH WATCHING AND SHARING (story craft). Treat the label like a short mystery with a reveal, not a list:
 - Hook formats that work (pick the one that fits the facts, never invent a claim): (a) contradiction, "It says 'natural'. The label says something else."; (b) a question people want answered, "What's the first thing on this label? Not what you think."; (c) a challenge, "Guess which ingredient shows up second."; (d) stakes, "Think twice before this goes in your cart." Open with the most surprising TRUE thing about this label, not with "Hey guys" or "Today I'm looking at".
@@ -213,12 +213,23 @@ export function parseScript(text: string): VideoScript {
   return { title, scenes };
 }
 
-/** Every script must end on a question. If the model forgot, add one. */
+const CTA = "Like and comment your answer.";
+const ENDS_WITH_CTA = /\b(like|comment)\b[^?]*$/i;
+
+/** Every script must end on a question, then a like-and-comment call to action. If the model forgot either, add it. */
 export function ensureHook(script: VideoScript): VideoScript {
   const last = script.scenes[script.scenes.length - 1];
-  if (!last || /\?["')\]\s]*$/.test(last.voiceover)) return script;
+  if (!last) return script;
+  const text = last.voiceover.trim();
+  let out = text;
+  if (!ENDS_WITH_CTA.test(out) || !out.includes("?")) {
+    const q = /\?["')\]\s]*$/.test(out) || (ENDS_WITH_CTA.test(out) && out.includes("?"));
+    if (!q) out = `${out} Do you eat this?`;
+    if (!ENDS_WITH_CTA.test(out.slice(out.lastIndexOf("?") + 1))) out = `${out} ${CTA}`;
+  }
+  if (out === text) return script;
   const scenes = script.scenes.slice(0, -1);
-  scenes.push({ ...last, voiceover: `${last.voiceover.trim()} Do you eat this?` });
+  scenes.push({ ...last, voiceover: out });
   return { ...script, scenes };
 }
 
